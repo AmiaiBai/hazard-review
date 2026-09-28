@@ -47,7 +47,7 @@ function loadAdmin() {
   const pw = ENV_ADMIN_PASSWORD || randomPassword(16);
   const init = {
     password: pw,
-    _note: '改密码就改上面的 password，保存后重启服务生效。这个文件不要提交到公开仓库。',
+    _note: '改密码就改上面的 password，下一次登录即生效（服务端每次登录都会重读本文件，不用重启）。这个文件不要提交到公开仓库。',
   };
   try {
     fs.mkdirSync(DATA_DIR, { recursive: true });   // 全新克隆时 data/ 还不存在
