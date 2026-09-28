@@ -1,0 +1,13 @@
+{
+  "name": "hazard-review",
+  "version": "1.0.0",
+  "private": true,
+  "description": "隐患识别结果专家评分器",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=16"
+  }
+}

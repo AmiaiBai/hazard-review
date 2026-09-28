@@ -1,0 +1,2461 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>隐患评分 · 统计汇总</title>
+<style>
+:root{
+  --bg:#f1f4f8; --card:#fff; --text:#141a24; --sub:#6a7488; --line:#e2e8f0;
+  --primary:#1d4ed8; --green:#15803d; --orange:#c2410c; --red:#b91c1c;
+  --shadow:0 1px 2px rgba(16,24,40,.05),0 3px 12px rgba(16,24,40,.05);
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);
+  font:14px/1.55 -apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",Arial,sans-serif}
+a{color:var(--primary)}
+.wrap{max-width:1180px;margin:0 auto;padding:20px 16px 70px}
+
+.top{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:18px}
+.top h1{font-size:20px;margin:0;letter-spacing:.3px}
+.top .sp{flex:1}
+.btn{
+  display:inline-flex;align-items:center;gap:6px;padding:9px 15px;border-radius:9px;
+  background:#fff;border:1px solid var(--line);font-size:13.5px;font-weight:600;color:#3b4657;
+  text-decoration:none;cursor:pointer;
+}
+.btn:hover{background:#f7f9fc}
+.btn-p{background:var(--primary);border-color:var(--primary);color:#fff}
+.btn-p:hover{background:#1a44bd}
+.stamp{font-size:12px;color:var(--sub)}
+
+/* 跳转目录：整页 16 张卡片、上万像素高，没有目录根本找不到「逐条隐患」这类明细表。
+   单行横向滚动（不换行）—— 换行会让吸顶条长到 80px+，一直占着视野。 */
+.jump{
+  position:sticky;top:0;z-index:30;display:flex;gap:5px;align-items:center;flex-wrap:nowrap;
+  overflow-x:auto;overflow-y:hidden;-webkit-overflow-scrolling:touch;scrollbar-width:none;
+  background:rgba(255,255,255,.95);backdrop-filter:blur(8px);
+  border:1px solid var(--line);border-radius:11px;padding:7px 9px;margin-bottom:16px;box-shadow:var(--shadow);
+}
+.jump::-webkit-scrollbar{display:none}
+.jump .jump-t{flex:0 0 auto;font-size:11.5px;font-weight:800;color:var(--sub);letter-spacing:.5px;margin-right:1px}
+.jump a{
+  flex:0 0 auto;font-size:12.5px;font-weight:600;color:#3b4657;text-decoration:none;
+  padding:4px 8px;border-radius:7px;background:#f4f7fb;border:1px solid #e6ecf4;white-space:nowrap;
+}
+.jump a:hover{background:#e9eff9;border-color:#cfdcef;color:var(--primary)}
+.jump a.on{background:var(--primary);border-color:var(--primary);color:#fff}
+/* 吸顶目录会盖住锚点目标的顶部，留出它的高度 */
+.card{scroll-margin-top:64px}
+
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(158px,1fr));gap:12px;margin-bottom:18px}
+.kpi{background:#fff;border:1px solid var(--line);border-radius:13px;padding:15px;box-shadow:var(--shadow)}
+.kpi .k{font-size:12px;color:var(--sub);font-weight:700;letter-spacing:.4px}
+.kpi .v{font-size:26px;font-weight:800;margin-top:5px;font-variant-numeric:tabular-nums;letter-spacing:-.5px}
+.kpi .d{font-size:11.5px;color:var(--sub);margin-top:2px}
+
+.card{background:#fff;border:1px solid var(--line);border-radius:13px;padding:17px;margin-bottom:16px;box-shadow:var(--shadow)}
+.card h2{font-size:15px;margin:0 0 3px;letter-spacing:.2px}
+.card .cap{font-size:12.5px;color:var(--sub);margin-bottom:14px}
+
+/* 维度表现：窄屏两行、宽屏一行，彻底避免文字溢出 */
+.dimrow{
+  display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:5px 12px;
+  padding:11px 0;border-bottom:1px dashed #edf1f6;
+}
+.dimrow:last-child{border-bottom:0}
+.dimrow .n{font-weight:700;font-size:13.5px;min-width:0;overflow-wrap:anywhere}
+.dimrow .s{text-align:right;font-size:12px;color:var(--sub);font-variant-numeric:tabular-nums;white-space:nowrap}
+.dimrow .s b{font-size:15px;color:var(--text)}
+.dimrow .track{grid-column:1/-1;height:18px;border-radius:6px;background:#eef2f7;overflow:hidden}
+.dimrow .track i{display:block;height:100%;border-radius:6px}
+@media (min-width:760px){
+  .dimrow{grid-template-columns:150px minmax(80px,1fr) 210px;gap:12px}
+  .dimrow .track{grid-column:auto}
+}
+
+/* 筛选条 */
+.fbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px}
+.fbar select,.fbar input[type=search]{
+  padding:8px 10px;border-radius:9px;border:1px solid var(--line);background:#f8fafd;
+  font-size:13px;color:var(--text);font-family:inherit;
+}
+.fbar select:focus,.fbar input[type=search]:focus{outline:none;border-color:#a9c2f5;background:#fff}
+.fbar input[type=search]{flex:1;min-width:150px}
+.fbar .fcount{font-size:12px;color:var(--sub);margin-left:auto;white-space:nowrap;font-variant-numeric:tabular-nums}
+.fbar .freset{padding:8px 12px;border-radius:9px;border:1px solid var(--line);background:#fff;font-size:12.5px;font-weight:600;color:#3b4657;cursor:pointer}
+.fbar .freset:hover{background:#f7f9fc}
+
+.tblbox{overflow-x:auto;-webkit-overflow-scrolling:touch}
+table{border-collapse:collapse;width:100%;font-size:13px;min-width:640px}
+th,td{padding:9px 10px;text-align:left;border-bottom:1px solid #eef1f6;vertical-align:top}
+th{background:#f7f9fc;font-weight:700;font-size:12px;color:#4a5568;white-space:nowrap;position:sticky;top:0;z-index:2}
+tbody tr:hover{background:#fafcff}
+td.num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+.pill{display:inline-block;padding:2px 8px;border-radius:6px;font-size:11.5px;font-weight:700;white-space:nowrap}
+.p-g{background:#e6f5ec;color:var(--green)}
+.p-b{background:#e8effd;color:var(--primary)}
+.p-o{background:#fdf0e7;color:var(--orange)}
+.p-r{background:#fdeaea;color:var(--red)}
+.p-n{background:#f1f3f7;color:#8b95a6}
+.hno{display:inline-block;min-width:18px;padding:1px 5px;margin-right:6px;border-radius:5px;background:#eef2f8;color:#526078;font-size:11px;font-weight:800;text-align:center}
+.cmt{font-size:12px;color:#4a5568;line-height:1.5;white-space:pre-wrap;max-width:340px}
+.cmt b{color:#243044}
+.muted{color:#9aa4b4}
+.legend{font-size:12px;color:var(--sub);margin-top:10px;display:flex;gap:16px;flex-wrap:wrap}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:5px}
+.empty{text-align:center;color:var(--sub);padding:40px 16px;font-size:13.5px}
+
+/* 维度表现 + 雷达图并排 */
+.dimwrap{display:grid;grid-template-columns:minmax(0,1fr);gap:8px}
+@media (min-width:820px){
+  .dimwrap{grid-template-columns:minmax(0,1fr) 320px;gap:22px;align-items:start}
+}
+.radarbox{display:flex;flex-direction:column;align-items:center;justify-content:center}
+.radarbox svg{width:100%;max-width:320px;height:auto}
+.radarcap{font-size:11.5px;color:var(--sub);margin-top:4px;text-align:center}
+
+/* 频率图 */
+.chartbox{overflow-x:auto;-webkit-overflow-scrolling:touch}
+.chartbox svg{width:100%;min-width:620px;height:auto;display:block}
+.charttip{font-size:12px;color:var(--sub);margin-top:6px}
+.serieschips{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+.serieschips span{display:inline-flex;align-items:center;font-size:12px;color:#4a5568;
+  padding:3px 9px;border-radius:7px;background:#f7f9fc;border:1px solid var(--line);cursor:pointer}
+.serieschips span.off{opacity:.35;text-decoration:line-through}
+.serieschips i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:6px}
+
+/* 分页 */
+.pager{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:12px;font-size:12.5px;color:var(--sub)}
+.pager button{padding:6px 11px;border-radius:8px;border:1px solid var(--line);background:#fff;
+  font-size:12.5px;font-weight:600;color:#3b4657;cursor:pointer;font-family:inherit}
+.pager button:hover:not(:disabled){background:#f7f9fc}
+.pager button:disabled{opacity:.4;cursor:not-allowed}
+.pager button.on{background:var(--primary);border-color:var(--primary);color:#fff}
+.pager .pginfo{margin-left:auto;font-variant-numeric:tabular-nums;white-space:nowrap}
+
+/* ============ 模型质量评估 ============ */
+.qbox{display:grid;grid-template-columns:minmax(0,1fr);gap:20px}
+@media (min-width:900px){ .qbox{grid-template-columns:minmax(0,1fr) 420px;gap:26px;align-items:start} }
+
+/* 2×2 混淆矩阵 */
+.qmat{display:grid;grid-template-columns:auto 1fr 1fr;gap:7px;font-size:12px;margin-bottom:4px}
+.qmat .ch{color:var(--sub);font-weight:700;text-align:center;padding:1px 0;font-size:11.5px;line-height:1.3}
+.qmat .rh{display:flex;align-items:center;justify-content:flex-end;color:var(--sub);font-weight:700;
+  font-size:11.5px;padding-right:8px;text-align:right;line-height:1.3}
+.qcell{border-radius:11px;padding:11px 12px;border:1px solid var(--line);background:#fafcff;min-width:0}
+.qcell .n{font-size:11.5px;font-weight:800;color:#4a5568;margin-bottom:2px;white-space:nowrap}
+.qcell .v{font-size:24px;font-weight:800;font-variant-numeric:tabular-nums;letter-spacing:-.6px;line-height:1.1}
+.qcell .d{font-size:11px;color:var(--sub);margin-top:4px;line-height:1.45}
+.qcell.tp{background:#eefaf2;border-color:#c8ecd6} .qcell.tp .v{color:var(--green)}
+.qcell.fp{background:#fdf6ee;border-color:#f6e0c8} .qcell.fp .v{color:var(--orange)}
+.qcell.fn{background:#fdeeee;border-color:#f6cccc} .qcell.fn .v{color:var(--red)}
+.qcell.tn{background:#f2f5fa;border-color:#dfe6f0} .qcell.tn .v{color:#526078}
+
+/* 可信度警示 */
+.qnote{border-radius:11px;padding:11px 13px;font-size:12.5px;line-height:1.65;margin-top:14px;
+  background:#fff8e8;border:1px solid #f3e0b0;color:#7a5310}
+.qnote.ok{background:#eefaf2;border-color:#c8ecd6;color:#166534}
+.qnote b{font-weight:800}
+.qnote ul{margin:5px 0 0;padding-left:17px}
+.qnote li{margin-top:3px}
+
+/* 四象限说明 */
+.qquad{display:grid;grid-template-columns:repeat(auto-fit,minmax(158px,1fr));gap:8px;margin-top:12px}
+.qquad div{padding:8px 10px;border-radius:9px;border:1px solid var(--line);background:#fafcff;
+  font-size:11.5px;color:var(--sub);line-height:1.5}
+.qquad b{display:block;font-size:12px;margin-bottom:2px;color:#3b4657}
+
+/* 评分分布直方图 */
+.hist{display:flex;align-items:stretch;gap:10px;height:215px;padding-top:14px}
+.hist .hb{flex:1;min-width:0;display:flex;flex-direction:column;height:100%}
+.hist .bars{flex:1;display:flex;align-items:flex-end;justify-content:center;gap:3px;min-height:0}
+.hist .bw{flex:1;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;height:100%}
+.hist .cv{font-size:9.5px;font-weight:700;color:#4a5568;margin-bottom:2px;font-variant-numeric:tabular-nums}
+.hist .bar{width:100%;border-radius:3px 3px 0 0;min-height:2px;cursor:default}
+.hist .lb{font-size:11px;color:var(--sub);text-align:center;margin-top:6px;white-space:nowrap;font-variant-numeric:tabular-nums}
+.qhint{font-size:12px;color:var(--sub);margin-top:8px;line-height:1.6}
+
+/* ============ 重大漏检红线告警 ============ */
+.redline{background:#fff6f6;border:1.5px solid #f0b4b4;border-radius:13px;padding:17px;margin-bottom:16px;box-shadow:var(--shadow)}
+.redline h2{color:var(--red);font-size:16px;margin:0 0 4px;letter-spacing:.2px}
+.redline .cap{color:#8a3a3a}
+.redline .cap b{color:var(--red)}
+.rlkpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(146px,1fr));gap:10px;margin:13px 0}
+.rlkpi{background:#fff;border:1px solid #f0cccc;border-radius:10px;padding:11px 12px}
+.rlkpi .k{font-size:11.5px;color:#8a3a3a;font-weight:700}
+.rlkpi .v{font-size:22px;font-weight:800;color:var(--red);font-variant-numeric:tabular-nums;margin-top:3px;letter-spacing:-.4px}
+.rlkpi .d{font-size:11px;color:#a96a6a;margin-top:2px}
+
+/* ============ 评价人一致性矩阵 ============ */
+.agmat{display:grid;gap:5px;font-size:11.5px;overflow-x:auto;padding-bottom:3px}
+.agmat .h{font-weight:700;color:var(--sub);text-align:center;padding:3px 2px;white-space:nowrap;font-size:11px}
+.agmat .rh{font-weight:700;color:var(--sub);display:flex;align-items:center;justify-content:flex-end;padding-right:7px;white-space:nowrap;font-size:11.5px}
+.agmat .c{border-radius:8px;padding:7px 4px;text-align:center;font-weight:700;font-variant-numeric:tabular-nums;line-height:1.25}
+.agmat .c small{display:block;font-size:10px;font-weight:600;opacity:.72;margin-top:1px}
+.agmat .c.self{background:#f4f6fa;color:#b6bfcc}
+.agmat .c.na{background:#f8fafc;color:#c3ccd8}
+
+/* ============ 评价人操作频率 ============ */
+.actbar{display:inline-block;height:9px;border-radius:5px;background:#1d4ed8;vertical-align:middle;margin-right:6px;min-width:2px}
+.st{display:inline-block;padding:2px 8px;border-radius:6px;font-size:11px;font-weight:700;white-space:nowrap}
+.st-active{background:#e6f5ec;color:var(--green)}
+.st-watch{background:#fdf0e7;color:var(--orange)}
+.st-stalled{background:#fdeaea;color:var(--red)}
+.st-none{background:#f1f3f7;color:#8b95a6}
+.sevtag{display:inline-block;padding:2px 7px;border-radius:6px;font-size:11px;font-weight:700;white-space:nowrap}
+.sev-general{background:#f1f3f7;color:#6a7488}
+.sev-major{background:#fdf0e7;color:var(--orange)}
+.sev-critical{background:#fdeaea;color:var(--red)}
+
+/* 按部门视图的管理员锁：卡片本身始终可见（不然又会变成「功能上线了但没人找得到」），
+   只是内容换成一句说明 + 密码框。 */
+.locktag{
+  display:inline-block;margin-left:8px;padding:2px 8px;border-radius:6px;
+  background:#fdf3e3;color:#a15c07;font-size:11px;font-weight:700;vertical-align:middle;
+}
+/* ⚠️ 必须显式写这一条：作者样式里的 display:inline-block 会盖掉 [hidden] 的 display:none，
+   否则 el.hidden = true 看着设了、标记还留在页面上（截图核验时抓到的）。 */
+.locktag[hidden]{display:none}
+.lockbox{
+  border:1px dashed #d7dfec;border-radius:11px;background:#f8fafd;
+  padding:16px 18px;max-width:520px;
+}
+.lockbox .lk-t{font-size:13.5px;font-weight:700;color:var(--text);margin-bottom:4px}
+.lockbox .lk-d{font-size:12.5px;color:var(--sub);line-height:1.7;margin-bottom:12px}
+.lockrow{display:flex;gap:9px;flex-wrap:wrap}
+.lockrow input{
+  flex:1;min-width:180px;padding:10px 12px;border-radius:9px;border:1px solid var(--line);
+  background:#fff;font-size:14px;font-family:inherit;color:var(--text);
+}
+.lockrow input:focus{outline:none;border-color:#a9c2f5}
+.lockerr{margin-top:9px;font-size:12.5px;font-weight:600;color:var(--red)}
+.lockerr[hidden]{display:none}
+.deptacts{display:flex;gap:9px;flex-wrap:wrap;align-items:center;margin-top:12px}
+.deptacts .note{font-size:12.5px;color:var(--sub)}
+
+/* 顶部管理员解锁条：部门 / 检查人 / 评审人三类信息统一由它控制。
+   放在顶部而不是塞进某张卡片，是因为它管的是「整页视角」，不是某一项功能。 */
+.adminbar{
+  display:none;align-items:center;gap:10px;flex-wrap:wrap;
+  margin:0 0 14px;padding:12px 15px;border-radius:12px;
+  border:1px solid #f0d9ae;background:#fffaf0;
+}
+.adminbar.show{display:flex}
+.adminbar .ab-t{font-size:12.5px;color:#8a5a12;font-weight:600}
+.adminbar input{
+  flex:1;min-width:170px;max-width:260px;padding:9px 12px;border-radius:9px;
+  border:1px solid var(--line);background:#fff;font-size:14px;font-family:inherit;color:var(--text);
+}
+.adminbar input:focus{outline:none;border-color:#a9c2f5}
+.adminbar .ab-err{font-size:12.5px;font-weight:600;color:var(--red)}
+.adminbar .ab-err[hidden]{display:none}
+/* 顶部的「管理员」按钮：解锁后换成已解锁的样子 */
+#adminBtn.on{background:#e8f5ec;border-color:#b6e0c4;color:#15803d}
+/* 未解锁时，被锁的筛选控件直接不显示 —— 留着一个空下拉更容易让人以为「数据缺了」 */
+body:not(.admin) .locked{display:none !important}
+/* 被锁的表格列：默认不显示，body.admin 时恢复（比逐处 JS 删列简单，也不会错位） */
+th.col-dept,td.col-dept,th.col-insp,td.col-insp{display:none}
+body.admin th.col-dept,body.admin td.col-dept,
+body.admin th.col-insp,body.admin td.col-insp{display:table-cell}
+
+/* 分歧隐患表里的「各评审人综合分」：人多时横着排会撑爆一列，改成每人一行 */
+.spreadrev{display:flex;flex-direction:column;gap:4px;min-width:150px}
+.spreadrev>div{white-space:nowrap;font-size:12.5px}
+
+/* 轻提示（管理页原本没有 toast，导出下载完要给一句「已开始下载」） */
+.toast{
+  position:fixed;left:50%;bottom:34px;transform:translate(-50%,14px);z-index:90;
+  background:rgba(24,32,47,.94);color:#fff;font-size:13px;font-weight:600;
+  padding:11px 18px;border-radius:11px;max-width:80vw;text-align:center;
+  opacity:0;pointer-events:none;transition:opacity .22s,transform .22s;
+}
+.toast.show{opacity:1;transform:translate(-50%,0)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <h1>隐患评分统计汇总</h1>
+    <span class="stamp" id="stamp"></span>
+    <span class="sp"></span>
+    <a class="btn" href="/" id="backToScore">← 返回评分页</a>
+    <button class="btn" id="refresh">刷新</button>
+    <button class="btn btn-p" id="expXlsx">导出 Excel</button>
+    <a class="btn" href="/api/export.csv">导出 CSV</a>
+    <button class="btn" id="adminBtn">🔒 管理员</button>
+  </div>
+
+  <!-- 顶部管理员解锁条：解锁后整页的部门 / 检查人 / 评审人信息一起出现 -->
+  <div class="adminbar" id="adminBar">
+    <span class="ab-t">部门 / 检查人 / 评审人信息仅管理员可见 —— 输入密码解锁：</span>
+    <input type="password" id="adminPw" placeholder="管理员密码" autocomplete="current-password">
+    <button class="btn btn-p" id="adminGo">解锁</button>
+    <button class="btn" id="adminCancel">取消</button>
+    <span class="ab-err" id="adminErr" hidden></span>
+  </div>
+
+  <!-- 吸顶跳转目录：内容按实际可见的卡片生成，红线卡没数据时不会留一个点了没反应的入口 -->
+  <nav class="jump" id="jump"></nav>
+
+  <div class="kpis" id="kpis"></div>
+
+  <!-- ============ 重大隐患风险红线（有才显示） ============ -->
+  <div class="card redline" id="cardRedline" style="display:none">
+    <h2 id="rlTitle">⚠ 重大隐患风险</h2>
+    <div class="cap">
+      重大隐患有两个口子，都要堵：<b>漏检</b> = AI 没报出来；<b>识别出错</b> = 报出来了但报错
+      （描述不符 / 依据不适用 / 严重度低估）。后者在传统指标里会被当成「报对了」混过去，所以必须单列。
+      两者在加权口径里都按 <b>10 倍</b>权重计算 —— 一条就能把召回率显著拉低，属于必须优先整改的红线问题。
+    </div>
+    <div class="rlkpis" id="rlKpis"></div>
+    <div class="tblbox"><table id="tRedline"></table></div>
+  </div>
+
+  <div class="card" id="cardFreq">
+    <h2>隐患识别频率</h2>
+    <div class="cap" id="fqCap">AI 眼镜的使用频率 —— 按识别时间统计每天识别出多少条记录；可筛选部门 / 检查人，也可按部门或检查人拆成多条曲线对比</div>
+    <div class="fbar">
+      <select id="fqDept" class="locked"><option value="all">全部部门</option></select>
+      <select id="fqInspector" class="locked"><option value="all">全部检查人</option></select>
+      <select id="fqGroup">
+        <option value="none">合计（单条曲线）</option>
+        <option value="dept" class="locked">按部门对比</option>
+        <option value="inspector" class="locked">按检查人对比</option>
+      </select>
+      <select id="fqMetric">
+        <option value="records">识别记录数</option>
+        <option value="hazards">识别隐患数</option>
+      </select>
+      <button class="freset" id="fqReset">重置</button>
+      <span class="fcount" id="fqSum"></span>
+    </div>
+    <div class="chartbox" id="freqChart"></div>
+    <div class="serieschips" id="freqLegend"></div>
+    <div class="charttip" id="freqTip"></div>
+  </div>
+
+  <!-- ============ 评价人操作频率（督促 + 补分母） ============ -->
+  <div class="card" id="cardAct">
+    <h2>评价人操作频率</h2>
+    <div class="cap">
+      按评审人的实际评分操作统计 —— 用来催办进度、把漏检复核的分母补起来。
+      <b>漏检复核没做完，召回率就是偏乐观的估计</b>，所以「漏检复核」这一列比总条数更值得盯。
+    </div>
+    <div class="fbar">
+      <select id="actUnit">
+        <option value="day">按天</option>
+        <option value="week">按周</option>
+      </select>
+      <select id="actMode">
+        <option value="daily">当期操作数</option>
+        <option value="cum">累计操作数</option>
+      </select>
+      <select id="actMetric">
+        <option value="count">全部操作</option>
+        <option value="noneCount">仅漏检复核</option>
+      </select>
+      <button class="freset" id="actReset">重置</button>
+      <span class="fcount" id="actSum"></span>
+    </div>
+    <div class="chartbox" id="actChart"></div>
+    <div class="serieschips" id="actLegend"></div>
+    <div class="charttip" id="actTip"></div>
+    <div class="tblbox" style="margin-top:14px"><table id="tAct"></table></div>
+    <div class="qhint" id="actTodo"></div>
+  </div>
+
+  <!-- ============ 模型质量评估 ============ -->
+  <div class="card" id="cardQuality">
+    <h2>模型质量评估（查准率 / 召回率 / 准确率）</h2>
+    <div class="cap">
+      把「人工评分」二值化成检测问题：人工对某条隐患的<b>隐患真实性</b>均分 ≥ 判定阈值，就认为「该隐患主体确实存在」（AI 报对了）；
+      低于阈值则认为「主体不成立」（误报）。AI 未识别到隐患的记录里，工程师复核确认「疑似漏检」的计入漏检。
+    </div>
+    <div class="fbar">
+      <label style="font-size:12.5px;font-weight:700;color:#4a5568">判定阈值</label>
+      <select id="qThr"></select>
+      <label style="font-size:12.5px;font-weight:700;color:#4a5568;margin-left:6px">漏检权重</label>
+      <select id="qWeight">
+        <option value="even">等权（每条漏检同权）</option>
+        <option value="sev">严重度加权（一般×1 / 较大×3 / 重大×10）</option>
+      </select>
+      <span class="fcount" id="qThrHint"></span>
+    </div>
+    <div class="kpis" id="qKpis" style="margin-bottom:16px"></div>
+    <div class="qbox">
+      <div>
+        <div class="qmat" id="qMatrix"></div>
+      </div>
+      <div>
+        <div class="charttip" style="margin-top:0">
+          矩阵读法：行 = AI 是否报出隐患，列 = 人工复核的结论。
+          查准率 = TP /（TP+FP），召回率 = TP /（TP+FN），准确率 =（TP+TN）/ 全部已复核样本。
+        </div>
+      </div>
+    </div>
+    <div id="qWarn"></div>
+  </div>
+
+  <!-- ============ 阈值敏感性曲线 ============ -->
+  <div class="card" id="cardSens">
+    <h2>阈值敏感性曲线 —— 召回率低，是不是因为阈值定太严？</h2>
+    <div class="cap">
+      横轴为判定阈值，纵轴为三项指标。曲线若整体偏低，说明问题不在阈值而在识别能力本身；
+      若只是被阈值卡住，拖动阈值就能换来明显改善。
+    </div>
+    <div class="chartbox" id="sensChart"></div>
+    <div class="serieschips" id="sensLegend"></div>
+    <div class="charttip" id="sensTip"></div>
+  </div>
+
+  <!-- ============ 弱点四象限 ============ -->
+  <div class="card" id="cardWeak">
+    <h2>弱点四象限 —— 哪一类隐患拖了后腿</h2>
+    <div class="cap">
+      每个点是一类隐患主题。横轴 = 查准率（隐患主体是否真实存在），纵轴 = 对标分（依据适用性与引用准确性的均分）。
+      点越大表示该主题的复核样本越多。虚线交叉处是整体水平。
+    </div>
+    <div class="chartbox" id="weakChart"></div>
+    <div class="qquad">
+      <div><b style="color:#15803d">右上 · 健康区</b>主体找得准、依据也对得上，保持即可</div>
+      <div><b style="color:#c2410c">左上 · 误报多</b>主体常常不成立 → 识别门槛偏松，需收紧判定</div>
+      <div><b style="color:#7c3aed">右下 · 对标偏弱</b>主体对但依据引错 → 修知识库 / 条款匹配</div>
+      <div><b style="color:#b91c1c">左下 · 优先整改</b>主体存疑且依据对不上，双重问题</div>
+    </div>
+    <div class="charttip" id="weakTip"></div>
+    <div class="tblbox" style="margin-top:14px"><table id="tWeak"></table></div>
+  </div>
+
+  <!-- ============ 识别能力趋势线 ============ -->
+  <div class="card" id="cardTrend">
+    <h2>识别能力提升趋势线</h2>
+    <div class="cap">按识别日期聚合查准率 / 召回率 / F1，看模型能力是否在变好。单期样本少、噪声大，默认用<b>累计口径</b>（截至该期为止的全部样本）读趋势；样本少的期次波动大，可开启平滑</div>
+    <div class="fbar">
+      <select id="qTrendUnit">
+        <option value="day">按天</option>
+        <option value="week">按周</option>
+        <option value="month">按月</option>
+      </select>
+      <select id="qTrendScope">
+        <option value="cum">累计口径（推荐）</option>
+        <option value="period">单期口径</option>
+      </select>
+      <select id="qTrendSmooth">
+        <option value="raw">原始值</option>
+        <option value="ma3">3 期移动平均</option>
+      </select>
+      <span class="fcount" id="qTrendSum"></span>
+    </div>
+    <div class="chartbox" id="trendChart"></div>
+    <div class="serieschips" id="trendLegend"></div>
+    <div class="charttip" id="trendTip"></div>
+  </div>
+
+  <!-- ============ 依据对标诊断 ============ -->
+  <div class="card" id="cardBasis">
+    <h2>依据对标诊断 —— 隐患问题与法规条款对得准不准</h2>
+    <div class="cap" id="basisCap"></div>
+    <div class="tblbox"><table id="tBasis"></table></div>
+    <div id="basisLow"></div>
+  </div>
+
+  <!-- ============ 评分分布 ============ -->
+  <div class="card" id="cardHist">
+    <h2>评分分布</h2>
+    <div class="cap">四个维度的打分分布 —— 若某一维度大量堆在低分档，说明该能力是短板；若集中在 90-100，说明该维度已达共识</div>
+    <div class="hist" id="qHist"></div>
+    <div class="legend" id="qHistLegend"></div>
+    <div class="qhint" id="qHistTip"></div>
+  </div>
+
+  <!-- ============ 评价人一致性 ============ -->
+  <div class="card" id="cardAgree">
+    <h2>评价人一致性</h2>
+    <div class="cap">
+      同一条隐患被多人评过，才能谈一致性。<b>一致性差意味着「标准答案」本身模糊</b> ——
+      这时查准率、召回率的可信度都要打折，先统一口径再谈优化模型。
+    </div>
+    <div class="kpis" id="agKpis" style="margin-bottom:16px"></div>
+    <div class="charttip" id="agTip"></div>
+    <div style="margin-top:16px">
+      <div class="cap" style="margin-bottom:8px">评审人两两一致率矩阵 —— 格子里的数字是两人共同评过的隐患中判定一致的比例，括号内为共同评过的条数</div>
+      <div class="agmat" id="agMatrix"></div>
+    </div>
+    <div style="margin-top:16px">
+      <div class="cap" style="margin-bottom:8px">分歧最大的隐患 —— 综合分极差越大，说明两人对这条隐患的看法差得越远</div>
+      <div class="tblbox"><table id="tSpread"></table></div>
+    </div>
+  </div>
+
+  <div class="card" id="cardDim">
+    <h2>各评分维度表现</h2>
+    <div class="cap">平均分越低、标准差越大，说明该维度分歧越大，越需要优先复核</div>
+    <div class="dimwrap">
+      <div id="dims"></div>
+      <div class="radarbox">
+        <div id="dimRadar"></div>
+        <div class="radarcap">四个维度平均分雷达图（满分 100）</div>
+      </div>
+    </div>
+    <div class="legend">
+      <span><i style="background:#15803d"></i>≥90 完全认可</span>
+      <span><i style="background:#2563eb"></i>75-89 基本认可</span>
+      <span><i style="background:#d97706"></i>60-74 部分存疑</span>
+      <span><i style="background:#b91c1c"></i>&lt;60 问题较多</span>
+    </div>
+  </div>
+
+  <div class="card" id="cardMonth">
+    <h2>按时间汇总</h2>
+    <div class="cap" id="monthCap">数据按识别时间顺承 —— 按月横向比较，看进度与评分口径是否稳定</div>
+    <div class="fbar" style="margin-bottom:10px">
+      <button class="btn btn-p" id="mByMonth">按月</button>
+      <button class="btn" id="mByWeek">按周</button>
+    </div>
+    <div class="tblbox"><table id="tMonth"></table></div>
+  </div>
+
+  <div class="card" id="cardDept">
+    <h2>按部门 <span class="locktag" id="deptLockTag">管理员功能</span></h2>
+    <div class="cap">进度 = 已评隐患数 / 该部门隐患总数</div>
+    <!-- 未解锁：不再自己放密码框，统一去顶部解锁（一个页面只该有一个解锁入口） -->
+    <div class="lockbox" id="deptLock">
+      <div class="lk-t">按部门查看隐患情况需要管理员密码</div>
+      <div class="lk-d">请点右上角的「🔒 管理员」解锁。部门 / 检查人 / 评审人信息由它统一控制。</div>
+    </div>
+    <!-- 已解锁 -->
+    <div id="deptBody" hidden>
+      <div class="tblbox"><table id="tDept"></table></div>
+      <div class="deptacts">
+        <button class="btn btn-p" id="deptExport">导出按部门统计清单</button>
+        <span class="note" id="deptUnlockNote"></span>
+      </div>
+    </div>
+  </div>
+
+  <div class="card" id="cardRev">
+    <h2>按评审人</h2>
+    <div class="cap">用于核对谁评了多少、评分松紧是否一致</div>
+    <div class="tblbox"><table id="tRev"></table></div>
+  </div>
+
+  <div class="card" id="cardHz">
+    <h2>逐条隐患评分结果</h2>
+    <div class="cap">按综合均分从低到高排列 —— 排在最前的是工程师最不认可的隐患，附修改建议与补充意见</div>
+    <div id="hzSevNote"></div>
+    <div class="fbar">
+      <select id="hzDept" class="locked"><option value="all">全部部门</option></select>
+      <select id="hzInspector" class="locked"><option value="all">全部检查人</option></select>
+      <select id="hzVerdict">
+        <option value="all">全部判定</option>
+        <option value="issue">有存疑</option>
+        <option value="pass">全部认可</option>
+        <option value="low">均分低于 60</option>
+        <option value="mid">均分 60-89</option>
+        <option value="high">均分 ≥ 90</option>
+      </select>
+      <select id="hzSev">
+        <option value="all">全部严重度</option>
+        <option value="critical">重大隐患</option>
+        <option value="criticalWrong">重大 · 识别出错（红线）</option>
+        <option value="major">较大隐患</option>
+        <option value="general">一般隐患</option>
+        <option value="none">未标注</option>
+      </select>
+      <select id="hzSort">
+        <option value="score-asc">均分 低 → 高</option>
+        <option value="score-desc">均分 高 → 低</option>
+        <option value="reviewers-desc">参评人数 多 → 少</option>
+        <option value="id">记录编号</option>
+      </select>
+      <input type="search" id="hzKey" placeholder="搜索记录编号 / 隐患名称">
+      <button class="freset" id="hzReset">重置</button>
+      <span class="fcount" id="hzCount"></span>
+    </div>
+    <div class="tblbox"><table id="tHz"></table></div>
+    <div class="pager" id="hzPager"></div>
+  </div>
+
+  <div class="card" id="cardNone">
+    <h2>漏检复核</h2>
+    <div class="cap">AI 未识别到隐患的记录，由工程师对照现场图判断是否漏检 —— 直接反映识别召回率</div>
+    <div id="noneKpi" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:11px;margin-bottom:15px"></div>
+    <div class="fbar">
+      <select id="nDept" class="locked"><option value="all">全部部门</option></select>
+      <select id="nInspector" class="locked"><option value="all">全部检查人</option></select>
+      <select id="nStatus">
+        <option value="all">全部状态</option>
+        <option value="todo">未复核</option>
+        <option value="confirmed">确认无隐患</option>
+        <option value="suspected">疑似漏检</option>
+      </select>
+      <select id="nSev">
+        <option value="all">全部严重度</option>
+        <option value="critical">重大隐患漏检</option>
+        <option value="major">较大隐患漏检</option>
+        <option value="general">一般隐患漏检</option>
+      </select>
+      <input type="search" id="nKey" placeholder="搜索记录编号 / 检查人 / 画面描述">
+      <button class="freset" id="nReset">重置</button>
+      <span class="fcount" id="nCount"></span>
+    </div>
+    <div class="tblbox"><table id="tNone"></table></div>
+    <div class="pager" id="nPager"></div>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+/* ---------------- 管理员令牌 ---------------- */
+/**
+ * 令牌只放 sessionStorage：关掉标签页就失效。
+ * 这台电脑可能是工地上的公用机，localStorage 会一直留着，不合适。
+ * 服务端那边令牌也是内存态，服务一重启就全部作废 —— 所以下面 load() 发现
+ * 「带着令牌还是没解锁」时会顺手把本地这个死令牌清掉，自动回到上锁状态。
+ */
+const ADMIN_TOKEN_KEY = 'hr_admin_token';
+function adminToken() {
+  try { return sessionStorage.getItem(ADMIN_TOKEN_KEY) || ''; } catch (e) { return ''; }   // 隐私模式会抛
+}
+function setAdminToken(t) {
+  try { t ? sessionStorage.setItem(ADMIN_TOKEN_KEY, t) : sessionStorage.removeItem(ADMIN_TOKEN_KEY); } catch (e) { /* 忽略 */ }
+}
+function adminHeaders() {
+  const t = adminToken();
+  return t ? { 'x-admin-token': t } : {};
+}
+
+let toastTimer = null;
+function toast(msg) {
+  const el = $('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove('show'), 2600);
+}
+
+const colorOf = (v) => v == null ? '#cbd5e1' : v >= 90 ? '#15803d' : v >= 75 ? '#2563eb' : v >= 60 ? '#d97706' : '#b91c1c';
+const pillOf = (v) => v == null ? 'p-n' : v >= 90 ? 'p-g' : v >= 75 ? 'p-b' : v >= 60 ? 'p-o' : 'p-r';
+const num = (v) => v == null ? '<span class="muted">—</span>' : v;
+const deptOf = (d) => d || '未标注';
+/** 检查人 —— 管理端按人切分任务用；空值归到「未标注」，否则下拉里会多出一个空选项 */
+const inspectorOf = (v) => v || '未标注';
+
+let S = null;
+const hzF = { dept: 'all', inspector: 'all', verdict: 'all', sev: 'all', sort: 'score-asc', kw: '' };
+const nF = { dept: 'all', inspector: 'all', status: 'all', sev: 'all', kw: '' };
+// 频率图筛选：部门 / 检查人 / 拆线方式 / 指标
+const fqF = { dept: 'all', inspector: 'all', group: 'none', metric: 'records' };
+const fqHidden = new Set();                 // 图例里被点掉的系列
+// 两张明细表的分页状态
+const hzP = { page: 1, size: 20 };
+const nP = { page: 1, size: 20 };
+const basisP = { page: 1, size: 20 };      // 依据对标诊断的「需人工复核条目」分页
+const SERIES_COLORS = ['#1d4ed8', '#15803d', '#c2410c', '#7c3aed', '#0891b2', '#be123c', '#4d7c0f', '#a16207'];
+
+/* ---------------- 通用：日期 ---------------- */
+const dayOf = (t) => String(t || '').slice(0, 10);
+function isoDay(d) {
+  const p = (n) => String(n).padStart(2, '0');
+  return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate());
+}
+/** 生成 [from, to] 之间的连续日期（含两端），最多 limit 天，避免脏数据把轴拉爆 */
+function dayAxis(from, to, limit = 400) {
+  if (!from || !to) return [];
+  const out = [];
+  const d = new Date(from + 'T00:00:00');
+  const end = new Date(to + 'T00:00:00');
+  while (d <= end && out.length < limit) { out.push(isoDay(d)); d.setDate(d.getDate() + 1); }
+  return out;
+}
+/** 把最大值取整成好看的刻度上限 */
+function niceMax(v) {
+  if (!(v > 0)) return 5;
+  if (v <= 5) return 5;
+  const p = Math.pow(10, Math.floor(Math.log10(v)));
+  const n = v / p;
+  const step = n <= 1 ? 1 : n <= 2 ? 2 : n <= 2.5 ? 2.5 : n <= 5 ? 5 : 10;
+  return Math.ceil(step * p);
+}
+
+/* ---------------- 通用：折线图（零依赖 SVG） ---------------- */
+/**
+ * @param {string[]} days   连续日期轴
+ * @param {Array<{name:string,color:string,values:Object}>} series
+ */
+function lineChartSvg(days, series, opts) {
+  const o = opts || {};
+  const unit = o.unit || '';
+  const W = 1000, H = 320;
+  const padL = 54, padR = 20, padT = 18, padB = 46;
+  const iw = W - padL - padR, ih = H - padT - padB;
+
+  const maxV = Math.max(1, ...series.map((s) => Math.max(0, ...days.map((d) => s.values[d] || 0))));
+  const yMax = o.yMax || niceMax(maxV);                 // 百分比图固定 0~100，不跟着数据缩放
+  const xLab = o.xLabel || ((d) => String(d).slice(5)); // X 轴标签格式化（阈值曲线要显示 "85%"）
+  const xAt = (i) => (days.length <= 1 ? padL + iw / 2 : padL + (i / (days.length - 1)) * iw);
+  const yAt = (v) => padT + ih - (v / yMax) * ih;
+
+  // 横向网格 + Y 轴刻度
+  // 计数类图表最忌讳 1.25 / 3.75 这种刻度 —— 优先挑一个能把 yMax 整除的格数
+  let gridN = 4;
+  for (const n of [4, 5, 3, 2]) {
+    if (Number.isInteger(yMax / n)) { gridN = n; break; }
+  }
+  let grid = '';
+  for (let i = 0; i <= gridN; i++) {
+    const v = (yMax / gridN) * i;
+    const yy = yAt(v);
+    grid += `<line x1="${padL}" y1="${yy.toFixed(1)}" x2="${W - padR}" y2="${yy.toFixed(1)}" stroke="#eef1f6" stroke-width="1"/>`;
+    grid += `<text x="${padL - 10}" y="${(yy + 4).toFixed(1)}" text-anchor="end" font-size="11.5" fill="#9aa4b4">${Math.round(v * 100) / 100}</text>`;
+  }
+
+  // X 轴日期标签：最多 8 个，均匀取样
+  const step = Math.max(1, Math.ceil(days.length / 8));
+  let xlab = '';
+  for (let i = 0; i < days.length; i += step) {
+    xlab += `<text x="${xAt(i).toFixed(1)}" y="${H - padB + 20}" text-anchor="middle" font-size="11.5" fill="#9aa4b4">${esc(xLab(days[i]))}</text>`;
+  }
+  if (days.length > 1 && (days.length - 1) % step !== 0) {
+    const i = days.length - 1;
+    xlab += `<text x="${xAt(i).toFixed(1)}" y="${H - padB + 20}" text-anchor="middle" font-size="11.5" fill="#9aa4b4">${esc(xLab(days[i]))}</text>`;
+  }
+  // 基线
+  const base = `<line x1="${padL}" y1="${yAt(0).toFixed(1)}" x2="${W - padR}" y2="${yAt(0).toFixed(1)}" stroke="#cfd8e5" stroke-width="1.2"/>`;
+  // 竖标记线（如「当前阈值」「今天」）
+  let vline = '';
+  if (o.vline != null && o.vline >= 0 && o.vline < days.length && days.length > 1) {
+    const x = xAt(o.vline);
+    const vc = o.vlineColor || '#b91c1c';
+    vline = `<line x1="${x.toFixed(1)}" y1="${padT}" x2="${x.toFixed(1)}" y2="${(padT + ih).toFixed(1)}"
+      stroke="${vc}" stroke-width="1.4" stroke-dasharray="5 4"/>`;
+    if (o.vlineLabel) {
+      vline += `<text x="${x.toFixed(1)}" y="${padT - 5}" text-anchor="middle" font-size="11" font-weight="700" fill="${vc}">${esc(o.vlineLabel)}</text>`;
+    }
+  }
+
+  let body = '';
+  series.forEach((s, si) => {
+    // values[d] 为 null / undefined 视为「该期无样本」→ 断点，不画成 0（0 分和「没数据」是两回事）
+    const raw = days.map((d, i) => (s.values[d] == null ? null : { i, x: xAt(i), y: yAt(s.values[d]) }));
+    const segs = [];
+    let cur = [];
+    for (const p of raw) {
+      if (p) cur.push(p);
+      else if (cur.length) { segs.push(cur); cur = []; }
+    }
+    if (cur.length) segs.push(cur);
+    if (!segs.length) return;
+
+    // 只有单条曲线、且没有断点时画面积，避免断点处出现假的三角填充
+    if (series.length === 1 && segs.length === 1) {
+      const line = segs[0].map((p) => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ');
+      body += `<polygon points="${padL},${yAt(0).toFixed(1)} ${line} ${(W - padR)},${yAt(0).toFixed(1)}"
+        fill="${s.color}" opacity="0.10"/>`;
+    }
+    const few = days.length <= 40;   // 点太多时不画实心圆点，避免糊成一团
+    for (const seg of segs) {
+      body += `<polyline points="${seg.map((p) => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ')}"
+        fill="none" stroke="${s.color}" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round"/>`;
+      body += seg.map((p) => `<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="${few ? 2.6 : 6}"
+        fill="${few ? '#fff' : 'transparent'}" stroke="${s.color}" stroke-width="${few ? 1.8 : 0}"
+        ><title>${days[p.i]} · ${s.name}：${s.values[days[p.i]]}${unit}</title></circle>`).join('');
+    }
+    void si;
+  });
+
+  return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="识别频率曲线">${grid}${base}${vline}${xlab}${body}</svg>`;
+}
+
+/* ---------------- 通用：雷达图（零依赖 SVG） ---------------- */
+/**
+ * @param {Array<{label:string,value:number|null}>} items  value 0-100
+ * 画布比图形宽一圈（1.45:1.12），否则左右两侧的文字标签会被 viewBox 裁掉
+ */
+function radarSvg(items, opts) {
+  const o = opts || {};
+  const size = o.size || 300;
+  const W = Math.round(size * 1.45);
+  const H = Math.round(size * 1.12);
+  const cx = W / 2, cy = H / 2;
+  const R = size * 0.30;
+  const labelR = R + Math.round(size * 0.078);
+  const fs1 = size >= 260 ? 12 : 11;
+  const fs2 = size >= 260 ? 11.5 : 11;
+  const n = items.length || 1;
+  const ang = (i) => -Math.PI / 2 + (i * 2 * Math.PI) / n;
+  const pt = (i, r) => [cx + Math.cos(ang(i)) * r, cy + Math.sin(ang(i)) * r];
+  const f = (x) => (Math.round(x * 10) / 10).toFixed(1);
+  const tint = (v) => (v == null ? '#94a3b8' : v >= 90 ? '#15803d' : v >= 75 ? '#2563eb' : v >= 60 ? '#d97706' : '#b91c1c');
+
+  let grid = '';
+  for (const lv of [25, 50, 75, 100]) {
+    const r = (R * lv) / 100;
+    grid += `<polygon points="${items.map((_, i) => pt(i, r).map(f).join(',')).join(' ')}" fill="none" stroke="#e6ebf3" stroke-width="1"/>`;
+  }
+  items.forEach((_, i) => {
+    const p = pt(i, R);
+    grid += `<line x1="${f(cx)}" y1="${f(cy)}" x2="${f(p[0])}" y2="${f(p[1])}" stroke="#e6ebf3" stroke-width="1"/>`;
+  });
+
+  const dpts = items.map((it, i) => pt(i, (R * Math.max(0, Math.min(100, it.value == null ? 0 : it.value))) / 100));
+  let data = `<polygon points="${dpts.map((p) => p.map(f).join(',')).join(' ')}" fill="#1d4ed8" fill-opacity="0.16" stroke="#1d4ed8" stroke-width="2" stroke-linejoin="round"/>`;
+  data += dpts.map((p, i) => `<circle cx="${f(p[0])}" cy="${f(p[1])}" r="3.2" fill="#fff" stroke="#1d4ed8" stroke-width="2"><title>${esc(items[i].label)}：${items[i].value == null ? '—' : items[i].value} 分</title></circle>`).join('');
+
+  let labels = '';
+  items.forEach((it, i) => {
+    const p = pt(i, labelR);
+    const cos = Math.cos(ang(i));
+    const anchor = Math.abs(cos) < 0.3 ? 'middle' : cos > 0 ? 'start' : 'end';
+    const short = it.label.replace('隐患', '').replace('法规依据', '依据').replace('依据引用', '引用');
+    labels += `<text x="${f(p[0])}" y="${f(p[1] + 4)}" text-anchor="${anchor}" font-size="${fs1}" font-weight="600" fill="#4a5568">${esc(short)}</text>`;
+    labels += `<text x="${f(p[0])}" y="${f(p[1] + 18)}" text-anchor="${anchor}" font-size="${fs2}" font-weight="700" fill="${tint(it.value)}">${it.value == null ? '—' : it.value}</text>`;
+  });
+
+  return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="维度雷达图">${grid}${data}${labels}</svg>`;
+}
+
+/* ---------------- 通用：散点图（弱点四象限） ---------------- */
+/**
+ * X / Y 都是 0-100 的百分比，十字线把画布切成四块，用来定位「哪一类隐患最弱」
+ * @param {Array<{x:number,y:number,r:number,color:string,label:string,title:string}>} points
+ */
+function scatterSvg(points, opts) {
+  const o = opts || {};
+  const W = 1000, H = 400;
+  const padL = 54, padR = 24, padT = 30, padB = 50;
+  const iw = W - padL - padR, ih = H - padT - padB;
+  const xAt = (v) => padL + (Math.max(0, Math.min(100, v)) / 100) * iw;
+  const yAt = (v) => padT + ih - (Math.max(0, Math.min(100, v)) / 100) * ih;
+  const cross = o.cross || { x: 50, y: 50 };
+
+  let grid = '';
+  for (let i = 0; i <= 4; i++) {
+    const v = i * 25;
+    grid += `<line x1="${padL}" y1="${yAt(v).toFixed(1)}" x2="${W - padR}" y2="${yAt(v).toFixed(1)}" stroke="#eef1f6" stroke-width="1"/>`;
+    grid += `<line x1="${xAt(v).toFixed(1)}" y1="${padT}" x2="${xAt(v).toFixed(1)}" y2="${padT + ih}" stroke="#eef1f6" stroke-width="1"/>`;
+    grid += `<text x="${padL - 10}" y="${(yAt(v) + 4).toFixed(1)}" text-anchor="end" font-size="11.5" fill="#9aa4b4">${v}%</text>`;
+    grid += `<text x="${xAt(v).toFixed(1)}" y="${H - padB + 20}" text-anchor="middle" font-size="11.5" fill="#9aa4b4">${v}%</text>`;
+  }
+  // 十字分界：整体均值处切开
+  grid += `<line x1="${xAt(cross.x).toFixed(1)}" y1="${padT}" x2="${xAt(cross.x).toFixed(1)}" y2="${padT + ih}" stroke="#c7d2e2" stroke-width="1.4" stroke-dasharray="6 4"/>`;
+  grid += `<line x1="${padL}" y1="${yAt(cross.y).toFixed(1)}" x2="${W - padR}" y2="${yAt(cross.y).toFixed(1)}" stroke="#c7d2e2" stroke-width="1.4" stroke-dasharray="6 4"/>`;
+  grid += `<text x="${xAt(cross.x).toFixed(1)}" y="${padT - 10}" text-anchor="middle" font-size="11" font-weight="700" fill="#8b95a6">整体查准 ${cross.x}%</text>`;
+  grid += `<text x="${padL - 6}" y="${(yAt(cross.y) - 7).toFixed(1)}" text-anchor="start" font-size="11" font-weight="700" fill="#8b95a6">整体对标 ${cross.y}%</text>`;
+
+  // 四象限角标
+  const corner = (x, y, t, anchor, col) =>
+    `<text x="${x}" y="${y}" text-anchor="${anchor}" font-size="12.5" font-weight="800" fill="${col}" opacity="0.5">${t}</text>`;
+  grid += corner(W - padR - 10, padT + 20, '健康区', 'end', '#15803d');
+  grid += corner(padL + 10, padT + 20, '误报多 · 识别门槛偏松', 'start', '#c2410c');
+  grid += corner(padL + 10, padT + ih - 12, '优先整改', 'start', '#b91c1c');
+  grid += corner(W - padR - 10, padT + ih - 12, '对标偏弱 · 依据引错', 'end', '#7c3aed');
+
+  // 轴名
+  grid += `<text x="${padL + iw / 2}" y="${H - 8}" text-anchor="middle" font-size="12" font-weight="700" fill="#6a7488">${esc(o.xTitle || '查准率（隐患主体是否真实存在）')}</text>`;
+  grid += `<text x="14" y="${padT + ih / 2}" text-anchor="middle" font-size="12" font-weight="700" fill="#6a7488" transform="rotate(-90 14 ${padT + ih / 2})">${esc(o.yTitle || '对标分（依据适用性+引用准确性）')}</text>`;
+
+  const dots = [];
+  const labels = [];
+  const placed = [];   // 已放置的标签位置，用于简单避让
+  for (const p of points) {
+    const cx = xAt(p.x), cy = yAt(p.y);
+    dots.push(`<circle cx="${cx.toFixed(1)}" cy="${cy.toFixed(1)}" r="${p.r}" fill="${p.color}" fill-opacity="0.55" stroke="${p.color}" stroke-width="1.8"><title>${esc(p.title)}</title></circle>`);
+    if (p.label) {
+      const right = cx < padL + iw * 0.62;
+      // 标签扎堆时逐格下移避让，否则同一位置的多个主题会叠成一坨看不清
+      let ly = cy + 4;
+      for (let guard = 0; guard < 14; guard++) {
+        if (!placed.some((q) => Math.abs(q.y - ly) < 13 && Math.abs(q.x - cx) < 140)) break;
+        ly += 13;
+      }
+      placed.push({ x: cx, y: ly });
+      labels.push(`<text x="${(cx + (right ? p.r + 5 : -p.r - 5)).toFixed(1)}" y="${ly.toFixed(1)}" text-anchor="${right ? 'start' : 'end'}" font-size="11.5" font-weight="600" fill="${p.small ? '#9aa4b4' : '#4a5568'}">${esc(p.label)}</text>`);
+    }
+  }
+  return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="弱点四象限">${grid}${dots.join('')}${labels.join('')}</svg>`;
+}
+
+/* ---------------- 通用：分页条 ---------------- */
+function pagerHtml(total, page, size) {
+  const pages = Math.max(1, Math.ceil(total / size));
+  const cur = Math.min(Math.max(1, page), pages);
+  if (total <= size) {
+    return `<span>共 ${total} 条</span>`;
+  }
+  // 页码窗口：当前页 ±2
+  const nums = [];
+  for (let p = 1; p <= pages; p++) {
+    if (p === 1 || p === pages || Math.abs(p - cur) <= 2) nums.push(p);
+  }
+  const uniq = [...new Set(nums)].sort((a, b) => a - b);
+  let btns = '';
+  let prev = 0;
+  for (const p of uniq) {
+    if (prev && p - prev > 1) btns += '<span>…</span>';
+    btns += `<button data-page="${p}" class="${p === cur ? 'on' : ''}">${p}</button>`;
+    prev = p;
+  }
+  return `<button data-page="${cur - 1}" ${cur <= 1 ? 'disabled' : ''}>上一页</button>${btns}` +
+    `<button data-page="${cur + 1}" ${cur >= pages ? 'disabled' : ''}>下一页</button>` +
+    `<span class="pginfo">第 ${cur} / ${pages} 页 · 共 ${total} 条</span>`;
+}
+
+/* ---------------- 数据加载 ---------------- */
+/* ---------------- 吸顶跳转目录 ---------------- */
+/**
+ * 整页 16 张卡片、上万像素高，「逐条隐患评分结果」（检查人筛选所在）排在第 15 张、y≈8300px ——
+ * 用户滚不到就会以为功能没上线。目录从「实际可见」的卡片生成：红线卡没数据时不会留死链。
+ * 标签优先取 data-nav，否则从 h2 清洗（去掉 ⚠、括号补充、破折号说明）。
+ */
+let _jumpScroll = null, _jumpRaf = 0;
+/** 短标签表：h2 太长会把吸顶条撑成两三行，压成一行才不占视野 */
+const NAV_SHORT = {
+  cardRedline: '⚠ 红线', cardFreq: '识别频率', cardAct: '操作频率', cardQuality: '模型质量',
+  cardSens: '阈值敏感性', cardWeak: '弱点四象限', cardTrend: '提升趋势', cardBasis: '依据对标',
+  cardHist: '评分分布', cardAgree: '一致性', cardDim: '维度表现', cardMonth: '按时间汇总',
+  cardDept: '按部门', cardRev: '按评审人', cardHz: '逐条隐患', cardNone: '漏检复核',
+};
+function jumpLabel(card) {
+  if (NAV_SHORT[card.id]) return NAV_SHORT[card.id];
+  if (card.dataset.nav) return card.dataset.nav;
+  const h2 = card.querySelector('h2');
+  if (!h2) return '';
+  return h2.textContent.replace(/^[\s⚠]+/, '').split(/（|\(| ——|—| -/)[0].trim();
+}
+/**
+ * 可见性判断：JSDOM 里没有布局，`offsetParent` 恒为 null，只能靠 display。
+ * 先看内联样式（红线卡就是靠内联 display 显隐的），再看计算样式兜底。
+ */
+function cardVisible(c) {
+  if (c.style && c.style.display === 'none') return false;
+  try { const cs = getComputedStyle(c); if (cs && cs.display === 'none') return false; } catch (e) { /* 无计算样式就当可见 */ }
+  return true;
+}
+function buildJump() {
+  const box = $('jump');
+  if (!box) return;
+  const items = [...document.querySelectorAll('.card')]
+    .filter((c) => c.id && cardVisible(c))
+    .map((c) => ({ id: c.id, label: jumpLabel(c) }))
+    .filter((x) => x.label);
+  box.innerHTML = '<span class="jump-t">跳转</span>'
+    + items.map((x) => `<a href="#${x.id}">${esc(x.label)}</a>`).join('');
+  bindJumpSpy();
+}
+/** 高亮当前所在卡片 —— 有目录还不够，得知道「我现在看到哪一段」 */
+function bindJumpSpy() {
+  if (_jumpScroll) { window.removeEventListener('scroll', _jumpScroll); _jumpScroll = null; }
+  const pairs = [...document.querySelectorAll('#jump a')]
+    .map((a) => ({ a, el: document.getElementById(a.getAttribute('href').slice(1)) }))
+    .filter((x) => x.el);
+  if (!pairs.length) return;
+  const upd = () => {
+    _jumpRaf = 0;
+    const y = window.scrollY + 100;
+    let cur = null;
+    for (const x of pairs) if (x.el.getBoundingClientRect().top + window.scrollY <= y) cur = x;
+    pairs.forEach((x) => x.a.classList.toggle('on', x === cur));
+    // 目录是单行横向滚动的，高亮项滚出可视区就白高亮了 —— 只动它的 scrollLeft，不碰页面滚动
+    const box = $('jump');
+    if (cur && box) {
+      const ar = cur.a.getBoundingClientRect(), br = box.getBoundingClientRect();
+      if (ar.left < br.left + 4) box.scrollLeft -= (br.left + 4 - ar.left);
+      else if (ar.right > br.right - 4) box.scrollLeft += (ar.right - br.right + 4);
+    }
+  };
+  _jumpScroll = () => { if (!_jumpRaf) _jumpRaf = requestAnimationFrame(upd); };
+  window.addEventListener('scroll', _jumpScroll, { passive: true });
+  upd();
+}
+
+async function load() {
+  // 带上管理员令牌（如果有）。服务端只对管理员下发 deptRows —— 界面上藏起来是不够的，
+  // 接口一扒就出来了，所以「按部门」的可见性是在服务端定的，前端只是跟着显示/上锁。
+  S = await fetch('/api/stats', { headers: adminHeaders() }).then((r) => r.json());
+  if (!S.deptUnlocked && adminToken()) setAdminToken('');   // 服务重启过 → 本地令牌已成死令牌，清掉
+  const m = S.summary;
+
+  $('stamp').textContent = '数据更新于 ' + new Date(S.generatedAt).toLocaleString('zh-CN', { hour12: false });
+
+  $('kpis').innerHTML = [
+    ['评分进度', m.progress + '%', `已评 ${m.reviewedHazards} / ${m.totalHazards} 条隐患`],
+    ['参评工程师', m.reviewerCount, `共 ${m.itemCount} 条评分记录`],
+    ['综合平均分', m.avgScore == null ? '—' : m.avgScore, '四项维度总平均'],
+    ['被指出存疑', m.flaggedCount, '至少一人未认可'],
+    ['疑似漏检', m.noneSuspected, `已复核 ${m.noneReviewed} / ${m.noneTotal} 条空场景`],
+  ].map(([k, v, d]) => `<div class="kpi"><div class="k">${k}</div><div class="v">${v}</div><div class="d">${d}</div></div>`).join('');
+
+  $('dims').innerHTML = S.dimensionsStat.map((d) => {
+    const v = d.avg == null ? 0 : d.avg;
+    return `<div class="dimrow">
+      <div class="n">${esc(d.label)}</div>
+      <div class="track"><i style="width:${v}%;background:${colorOf(d.avg)}"></i></div>
+      <div class="s"><b>${d.avg == null ? '—' : d.avg}</b> 分 · ${d.count} 样本${d.std == null ? '' : ` · 波动 ${d.std}`}</div>
+    </div>`;
+  }).join('') || '<div class="empty">暂无评分数据</div>';
+
+  $('dimRadar').innerHTML = radarSvg(S.dimensionsStat.map((d) => ({ label: d.label, value: d.avg })), { size: 300 });
+
+  renderFreq();
+  renderAct();
+  renderMonth();
+  renderDept();
+  renderRev();
+  fillDeptSelects();
+  renderHz();
+  renderNone();
+  initQuality();
+}
+
+/* ---------------- 质量指标：初始化 + 阈值联动 ---------------- */
+let qInit = false;
+function initQuality() {
+  if (!qInit) {
+    // 阈值下拉与服务端的「认可线」对齐；只初始化一次，之后保留用户选择
+    Q.thr = qLine();
+    if (!Q_LEVELS.includes(Q.thr)) Q_LEVELS.push(Q.thr);
+    Q_LEVELS.sort((a, b) => a - b);
+    $('qThr').innerHTML = Q_LEVELS.map((t) => `<option value="${t}">${t} 分</option>`).join('');
+    $('qThr').value = String(Q.thr);
+    qInit = true;
+  }
+  renderRedline();
+  renderQuality();
+  renderSens();
+  renderWeak();
+  renderTrend();
+  renderBasis();
+  renderHist();
+  renderAgree();
+  // 目录放在最后重建：红线卡是否显示要等 renderRedline 跑完才知道
+  buildJump();
+}
+
+/* ---------------- 隐患识别频率 ---------------- */
+function freqRowsFiltered() {
+  return (S.freqRows || []).filter((f) =>
+    (fqF.dept === 'all' || f.dept === fqF.dept) &&
+    (fqF.inspector === 'all' || f.inspector === fqF.inspector));
+}
+
+function renderFreq() {
+  const rows = freqRowsFiltered();
+  const metric = fqF.metric;
+  const unit = metric === 'hazards' ? ' 条隐患' : ' 条记录';
+
+  // 日期轴：从数据最早到最晚，补齐没有记录的日子（0）
+  const span = S.timeSpan || {};
+  const all = (S.freqRows || []).map((f) => f.day).filter(Boolean).sort();
+  const days = dayAxis(span.first || all[0], span.last || all[all.length - 1]);
+
+  // 拆线方式
+  let groups;
+  if (fqF.group === 'none') {
+    groups = [{ name: '合计', key: '__all' }];
+  } else {
+    const keyField = fqF.group === 'dept' ? 'dept' : 'inspector';
+    const totals = new Map();
+    for (const f of rows) totals.set(f[keyField], (totals.get(f[keyField]) || 0) + f[metric]);
+    const sorted = [...totals.entries()].sort((a, b) => b[1] - a[1]);
+    const top = sorted.slice(0, 8);
+    const rest = sorted.slice(8);
+    groups = top.map(([k]) => ({ name: k, key: k }));
+    if (rest.length) groups.push({ name: '其他 ' + rest.length + ' 项', key: '__other', other: new Set(rest.map(([k]) => k)) });
+  }
+
+  const keyField = fqF.group === 'dept' ? 'dept' : 'inspector';
+  const series = groups
+    .filter((g) => !fqHidden.has(g.name))
+    .map((g, i) => {
+      const values = {};
+      for (const d of days) values[d] = 0;
+      for (const f of rows) {
+        const hit = g.key === '__all' ? true
+          : g.key === '__other' ? g.other.has(f[keyField])
+            : f[keyField] === g.key;
+        if (hit && values[f.day] !== undefined) values[f.day] += f[metric];
+      }
+      return { name: g.name, color: SERIES_COLORS[i % SERIES_COLORS.length], values };
+    });
+
+  // 摘要
+  const total = rows.reduce((a, f) => a + f[metric], 0);
+  const activeDays = days.filter((d) => rows.some((f) => f.day === d && f[metric] > 0)).length;
+  const peak = days.reduce((best, d) => {
+    const v = rows.filter((f) => f.day === d).reduce((a, f) => a + f[metric], 0);
+    return v > best.v ? { day: d, v } : best;
+  }, { day: '', v: 0 });
+  const who = [
+    fqF.dept === 'all' ? '全部部门' : fqF.dept,
+    fqF.inspector === 'all' ? '全部检查人' : fqF.inspector,
+  ].join(' · ');
+  $('fqSum').textContent = `${who}：合计 ${total}${unit}`;
+
+  $('freqChart').innerHTML = days.length
+    ? lineChartSvg(days, series, { unit })
+    : '<div class="empty">暂无识别记录</div>';
+
+  $('freqLegend').innerHTML = groups.map((g) => {
+    const i = groups.indexOf(g);
+    const off = fqHidden.has(g.name);
+    return `<span class="${off ? 'off' : ''}" data-series="${esc(g.name)}">
+      <i style="background:${SERIES_COLORS[i % SERIES_COLORS.length]}"></i>${esc(g.name)}</span>`;
+  }).join('');
+
+  $('freqTip').textContent = days.length
+    ? `时间轴 ${days[0]} ~ ${days[days.length - 1]}（共 ${days.length} 天，其中 ${activeDays} 天有识别记录）` +
+      (peak.v ? `；单日峰值 ${peak.v}${unit}（${peak.day}）` : '') +
+      `；日均 ${(total / (activeDays || 1)).toFixed(1)}${unit}` +
+      (fqF.group !== 'none' ? '。点上方图例可隐藏 / 显示对应曲线。' : '')
+    : '';
+}
+
+/* ---------------- 按月份 ---------------- */
+const monthF = { unit: 'month' };             // 'month' | 'week'
+
+function renderMonth() {
+  const unit = monthF.unit;
+  const rows = (unit === 'week' ? S.weekRows : S.monthRows) || [];
+  $('cardMonth').style.display = rows.length ? '' : 'none';
+  $('mByMonth').className = 'btn' + (unit === 'month' ? ' btn-p' : '');
+  $('mByWeek').className = 'btn' + (unit === 'week' ? ' btn-p' : '');
+  $('monthCap').textContent = unit === 'week'
+    ? '数据按识别时间顺承 —— 按周横向比较（周一为一周之首），适合盯最近几周的进度变化'
+    : '数据按识别时间顺承 —— 按月横向比较，看进度与评分口径是否稳定';
+  if (!rows.length) return;
+
+  const mh = [unit === 'week' ? '周（起）' : '月份', '记录数', '隐患总数', '已评', '进度', '覆盖部门', '时间范围', '真实性', '描述符合性', '依据适用性', '引用准确性', '综合均分', '认可', '存疑'];
+  $('tMonth').innerHTML = '<thead><tr>' + mh.map((h) => `<th>${h}</th>`).join('') + '</tr></thead><tbody>' +
+    rows.map((m) => `<tr>
+      <td><b>${esc(m.label)}</b></td>
+      <td class="num">${m.records}</td>
+      <td class="num">${m.hazards}</td>
+      <td class="num">${m.reviewed}</td>
+      <td class="num"><span class="pill ${m.progress >= 100 ? 'p-g' : m.progress > 0 ? 'p-b' : 'p-n'}">${m.progress}%</span></td>
+      <td>${esc((m.depts || []).join('、') || '—')}</td>
+      <td class="muted">${m.firstTime ? esc(m.firstTime.slice(0, 10) + ' ~ ' + m.lastTime.slice(0, 10)) : '—'}</td>
+      <td class="num">${num(m.dimAvg.real)}</td>
+      <td class="num">${num(m.dimAvg.desc)}</td>
+      <td class="num">${num(m.dimAvg.basis)}</td>
+      <td class="num">${num(m.dimAvg.cite)}</td>
+      <td class="num"><b>${num(m.overall)}</b></td>
+      <td class="num">${m.passes}</td>
+      <td class="num">${m.issues}</td>
+    </tr>`).join('') + '</tbody>';
+}
+
+/* ---------------- 管理员模式（部门 / 检查人 / 评审人） ---------------- */
+let adminBarOpen = false;
+
+/**
+ * 表头文字 → 锁定 class。只认文字不认下标：
+ * 各张表的列顺序不一样，写死下标的话改一次列就错位（而且必漏一两张表）。
+ */
+const LOCK_COL_NAMES = {
+  '部门': 'col-dept', '覆盖部门': 'col-dept', '所属部门': 'col-dept',
+  '检查人': 'col-insp', '检查人员': 'col-insp',
+};
+
+/** 给整列打上锁定 class（CSS 里 body:not(.admin) 时隐藏），表头和数据行一起打 */
+function lockCols(table) {
+  if (!table) return;
+  const ths = [...table.querySelectorAll('thead th')];
+  const hit = new Map();
+  ths.forEach((th, i) => {
+    const cls = LOCK_COL_NAMES[th.textContent.trim()];
+    if (cls) { th.classList.add(cls); hit.set(i, cls); }
+  });
+  if (!hit.size) return;
+  for (const tr of table.querySelectorAll('tbody tr')) {
+    for (const [i, cls] of hit) { const td = tr.children[i]; if (td) td.classList.add(cls); }
+  }
+}
+
+// 表格都是各渲染函数各写各的 innerHTML，逐个函数末尾加 lockCols() 必漏一两个 ——
+// 用一个 observer 统一兜住：任何表格重新渲染后自动补 class（幂等，不会循环：
+// observer 只看 childList，而 lockCols 改的是 attribute）。
+new MutationObserver((muts) => {
+  const tables = new Set();
+  for (const m of muts) {
+    const el = m.target.nodeType === 1 ? m.target : m.target.parentElement;
+    if (!el) continue;
+    if (el.tagName === 'TABLE') tables.add(el);
+    else if (el.querySelector) { const t = el.querySelector('table'); if (t) tables.add(t); }
+    if (el.closest) { const up = el.closest('table'); if (up) tables.add(up); }
+  }
+  for (const t of tables) lockCols(t);
+}).observe(document.body, { childList: true, subtree: true });
+
+/**
+ * 解锁状态完全由服务端说了算（S.deptUnlocked）。
+ * 三类信息（部门、检查人、评审人姓名）由这一个开关统一控制 —— 它们是同一种东西：
+ * 「这批数据是哪个单位的、谁去检查的、被谁评的」。分开锁只会漏。
+ * 实现上给 <body> 挂 .admin：被锁的筛选器靠 CSS 隐藏、被锁的表格列也靠 CSS 隐藏。
+ * 比在十几个渲染函数里各写一遍条件可靠得多 —— 那种写法必漏，而且列数一变就错位。
+ */
+function renderAdminMode() {
+  const on = !!S.deptUnlocked;
+  document.body.classList.toggle('admin', on);
+  $('adminBtn').classList.toggle('on', on);
+  $('adminBtn').textContent = on ? '🔓 管理员（已解锁）' : '🔒 管理员';
+  $('adminBar').classList.toggle('show', !on && adminBarOpen);
+  // 说明文字里提到「部门 / 检查人」的，未解锁时不该出现这些字
+  $('fqCap').textContent = on
+    ? 'AI 眼镜的使用频率 —— 按识别时间统计每天识别出多少条记录；可筛选部门 / 检查人，也可按部门或检查人拆成多条曲线对比'
+    : 'AI 眼镜的使用频率 —— 按识别时间统计每天识别出多少条记录';
+  $('nKey').placeholder = on ? '搜索记录编号 / 检查人 / 画面描述' : '搜索记录编号 / 画面描述';
+
+  $('deptLock').hidden = on;
+  $('deptBody').hidden = !on;
+  $('deptLockTag').hidden = on;
+  if (on) {
+    $('deptUnlockNote').textContent = `已解锁 · 共 ${(S.deptRows || []).length} 个部门`;
+  } else {
+    $('tDept').innerHTML = '';
+    adminErr('');
+  }
+}
+
+function renderDept() {
+  renderAdminMode();
+  if (!S.deptUnlocked) return;                 // 没解锁就别渲染，省得空表一闪
+  const dh = ['部门', '隐患总数', '已评', '进度', '真实性', '描述符合性', '依据适用性', '引用准确性', '综合均分', '认可', '存疑'];
+  $('tDept').innerHTML = '<thead><tr>' + dh.map((h) => `<th>${h}</th>`).join('') + '</tr></thead><tbody>' +
+    (S.deptRows.map((d) => `<tr>
+      <td><b>${esc(d.dept)}</b></td>
+      <td class="num">${d.hazards}</td>
+      <td class="num">${d.reviewed}</td>
+      <td class="num"><span class="pill ${d.progress >= 100 ? 'p-g' : d.progress > 0 ? 'p-b' : 'p-n'}">${d.progress}%</span></td>
+      <td class="num">${num(d.dimAvg.real)}</td>
+      <td class="num">${num(d.dimAvg.desc)}</td>
+      <td class="num">${num(d.dimAvg.basis)}</td>
+      <td class="num">${num(d.dimAvg.cite)}</td>
+      <td class="num"><b>${num(d.overall)}</b></td>
+      <td class="num">${d.passes}</td>
+      <td class="num">${d.issues}</td>
+    </tr>`).join('') || '<tr><td colspan="11" class="empty">暂无数据</td></tr>') + '</tbody>';
+}
+
+/* ---------------- 顶部解锁 / 退出管理员 ---------------- */
+function adminErr(msg) {
+  const el = $('adminErr');
+  if (!msg) { el.hidden = true; return; }
+  el.textContent = msg;
+  el.hidden = false;
+}
+
+function openAdminBar() {
+  adminBarOpen = true;
+  $('adminBar').classList.add('show');
+  $('adminPw').focus();
+}
+
+async function unlockAdmin() {
+  const pw = $('adminPw').value;
+  if (!pw) { adminErr('请输入管理员密码'); $('adminPw').focus(); return; }
+  adminErr('');
+  $('adminGo').disabled = true;
+  try {
+    const r = await fetch('/api/admin/login', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ password: pw }),
+    }).then((x) => x.json());
+    if (!r.ok) {
+      adminErr(r.error || '密码不对');
+      $('adminPw').value = '';
+      $('adminPw').focus();
+      return;
+    }
+    setAdminToken(r.token);
+    $('adminPw').value = '';
+    adminBarOpen = false;
+    await load();                              // 带令牌重拉：脱敏的数据才会换成完整的
+    toast('已进入管理员模式');
+  } catch (e) {
+    adminErr('网络异常，稍后再试');
+  } finally {
+    $('adminGo').disabled = false;
+  }
+}
+
+/** 退出管理员：清本地令牌 + 通知服务端作废（拿不到响应也不影响本地已退出） */
+async function lockAdmin() {
+  if (adminToken()) {
+    try { await fetch('/api/admin/logout', { method: 'POST', headers: adminHeaders() }); } catch (e) { /* 忽略 */ }
+  }
+  setAdminToken('');
+  adminBarOpen = false;
+  await load();
+  toast('已退出管理员模式');
+}
+
+/** 触发一次浏览器下载（blob → 临时链 → 点掉 → 回收） */
+function saveBlob(blob, name) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = name;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 5000);
+}
+
+/**
+ * 顶部「导出 Excel」= 全量导出，全员可见。
+ * ⚠️ 必须走 fetch + blob，不能用 <a href="/api/export.xlsx">：
+ * 裸链接带不了 x-admin-token 请求头，服务端只能当成匿名请求，
+ * 结果就是「界面显示已解锁，下到的却是不含部门汇总的匿名版」——自相矛盾。
+ * 未解锁时 adminHeaders() 是空对象，服务端照旧给匿名版，不受影响。
+ */
+async function downloadFullXlsx() {
+  const btn = $('expXlsx');
+  const label = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = '导出中…';
+  try {
+    const r = await fetch('/api/export.xlsx', { headers: adminHeaders() });
+    if (!r.ok) {
+      const j = await r.json().catch(() => ({}));
+      toast('导出失败：' + (j.error || r.status));
+      return;
+    }
+    const blob = await r.blob();
+    saveBlob(blob, `隐患评分汇总-${new Date().toISOString().slice(0, 10)}.xlsx`);
+    toast(S.deptUnlocked ? '已开始下载（含部门汇总）' : '已开始下载');
+  } catch (e) {
+    toast('导出失败：网络异常');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = label;
+  }
+}
+
+/**
+ * 导出按部门清单。
+ * 用 fetch + blob 而不是 <a href>：导出接口要校验 x-admin-token 请求头，
+ * 普通链接带不了自定义头。也正因如此，令牌不会出现在 URL 里（不会漏进历史记录和服务器日志）。
+ */
+async function downloadDeptExport() {
+  const btn = $('deptExport');
+  btn.disabled = true;
+  try {
+    const r = await fetch('/api/export-dept.xlsx', { headers: adminHeaders() });
+    if (!r.ok) {
+      const j = await r.json().catch(() => ({}));
+      toast(r.status === 403 ? '需要管理员密码' : '导出失败：' + (j.error || r.status));
+      if (r.status === 403) { setAdminToken(''); await load(); }
+      return;
+    }
+    const blob = await r.blob();
+    saveBlob(blob, '按部门隐患统计.xlsx');
+    toast('已开始下载「按部门隐患统计.xlsx」');
+  } catch (e) {
+    toast('导出失败：网络异常');
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+$('adminBtn').onclick = () => {
+  if (S.deptUnlocked) { lockAdmin(); return; }
+  adminBarOpen ? ($('adminBar').classList.remove('show'), adminBarOpen = false) : openAdminBar();
+};
+$('adminGo').onclick = unlockAdmin;
+$('adminCancel').onclick = () => { adminBarOpen = false; $('adminBar').classList.remove('show'); adminErr(''); };
+$('adminPw').onkeydown = (e) => { if (e.key === 'Enter') { e.preventDefault(); unlockAdmin(); } };
+$('expXlsx').onclick = downloadFullXlsx;
+$('deptExport').onclick = downloadDeptExport;
+
+function renderRev() {
+  // 「部门」列只在管理员解锁后出现。
+  // 登录页已经不再收部门，这个字段对新评审人恒为空（老数据保留原值），
+  // 摆给所有人看只会让人以为「数据缺了」；但管理员核对历史数据时还用得上，
+  // 所以是「对匿名隐藏」，不是「删掉」。部门维度的正式入口是上面的「按部门」卡片。
+  const showDept = !!S.deptUnlocked;
+  const rh = ['评审人'].concat(showDept ? ['部门'] : [])
+    .concat(['评分条数', '漏检复核', '真实性', '描述符合性', '依据适用性', '引用准确性', '综合均分', '认可率', '最后提交']);
+  const colCount = rh.length;
+  $('tRev').innerHTML = '<thead><tr>' + rh.map((h) => `<th>${h}</th>`).join('') + '</tr></thead><tbody>' +
+    (S.reviewerRows.map((r) => `<tr>
+      <td><b>${esc(r.reviewer)}</b></td>
+      ${showDept ? `<td>${esc(r.dept || '—')}</td>` : ''}
+      <td class="num">${r.count}</td>
+      <td class="num">${r.noneCount || 0}</td>
+      <td class="num">${num(r.dimAvg.real)}</td>
+      <td class="num">${num(r.dimAvg.desc)}</td>
+      <td class="num">${num(r.dimAvg.basis)}</td>
+      <td class="num">${num(r.dimAvg.cite)}</td>
+      <td class="num"><b>${num(r.overall)}</b></td>
+      <td class="num">${r.passRate == null ? '—' : r.passRate + '%'}</td>
+      <td class="muted">${esc((r.lastAt || '').replace('T', ' ').slice(0, 16))}</td>
+    </tr>`).join('') || `<tr><td colspan="${colCount}" class="empty">还没有人提交评分</td></tr>`) + '</tbody>';
+}
+
+/**
+ * 检查人下拉随部门收窄 —— 选了部门后只列出该部门下的检查人，避免筛出必然为 0 条的组合。
+ * 当前选中的检查人不在新列表里就回落「全部」。
+ */
+function fillInspector(sel, rows, deptVal, cur) {
+  const pool = deptVal === 'all' ? rows : rows.filter((r) => deptOf(r.dept) === deptVal);
+  const list = [];
+  for (const r of pool) { const v = inspectorOf(r.inspector); if (!list.includes(v)) list.push(v); }
+  list.sort();
+  const keep = list.includes(cur) ? cur : 'all';
+  sel.innerHTML = '<option value="all">全部检查人</option>'
+    + list.map((d) => `<option value="${esc(d)}">${esc(d)}</option>`).join('');
+  sel.value = keep;
+  return keep;
+}
+
+function fillDeptSelects() {
+  const uniq = (rows, get) => {
+    const s = [];
+    for (const r of rows) { const v = get(r); if (!s.includes(v)) s.push(v); }
+    return s.sort();
+  };
+  const put = (sel, list, cur, allLabel) => {
+    const keep = list.includes(cur) ? cur : 'all';
+    sel.innerHTML = `<option value="all">${allLabel}</option>` + list.map((d) => `<option value="${esc(d)}">${esc(d)}</option>`).join('');
+    sel.value = keep;
+    return keep;
+  };
+  hzF.dept = put($('hzDept'), uniq(S.hazardRows, (r) => deptOf(r.dept)), hzF.dept, '全部部门');
+  hzF.inspector = fillInspector($('hzInspector'), S.hazardRows, hzF.dept, hzF.inspector);
+  nF.dept = put($('nDept'), uniq(S.noneRows || [], (r) => deptOf(r.dept)), nF.dept, '全部部门');
+  nF.inspector = fillInspector($('nInspector'), S.noneRows || [], nF.dept, nF.inspector);
+
+  // 频率图的部门 / 检查人下拉（数据来自全量识别记录，与评分无关）
+  const freq = S.freqRows || [];
+  fqF.dept = put($('fqDept'), uniq(freq, (r) => r.dept), fqF.dept, '全部部门');
+  fqF.inspector = put($('fqInspector'), uniq(freq, (r) => r.inspector), fqF.inspector, '全部检查人');
+}
+
+/* ---------------- 逐条隐患评分结果（带筛选） ---------------- */
+/** 已识别隐患的严重度标签 —— 「重大 + 识别出错」直接标出来，一眼能捞到 */
+function sevTagHtml(h) {
+  if (!h.severity) return '<span class="muted">—</span>';
+  const extra = h.criticalWrong ? ' · 识别出错' : '';
+  return `<span class="sevtag sev-${h.severity}">${esc(h.severityLabel || h.severity)}${extra}</span>`;
+}
+
+function renderHz() {
+  const kw = hzF.kw.trim().toLowerCase();
+  let rows = S.hazardRows.filter((h) => {
+    if (hzF.dept !== 'all' && deptOf(h.dept) !== hzF.dept) return false;
+    if (hzF.inspector !== 'all' && inspectorOf(h.inspector) !== hzF.inspector) return false;
+    if (hzF.verdict === 'issue' && !(h.issues > 0)) return false;
+    if (hzF.verdict === 'pass' && h.issues > 0) return false;
+    if (hzF.verdict === 'low' && !(h.overall != null && h.overall < 60)) return false;
+    if (hzF.verdict === 'mid' && !(h.overall != null && h.overall >= 60 && h.overall < 90)) return false;
+    if (hzF.verdict === 'high' && !(h.overall != null && h.overall >= 90)) return false;
+    // 严重度筛选：「重大 · 识别出错」是红线，单独一档方便直接捞出来
+    if (hzF.sev === 'none' && h.severity) return false;
+    if (hzF.sev === 'criticalWrong' && !h.criticalWrong) return false;
+    if (hzF.sev !== 'all' && hzF.sev !== 'none' && hzF.sev !== 'criticalWrong' && h.severity !== hzF.sev) return false;
+    if (kw) {
+      const hay = (h.recordId + ' ' + (h.name || '')).toLowerCase();
+      if (!hay.includes(kw)) return false;
+    }
+    return true;
+  });
+
+  const s = hzF.sort;
+  rows = rows.slice().sort((a, b) => {
+    if (s === 'id') return String(a.recordId).localeCompare(String(b.recordId)) || (a.hazardNo || 0) - (b.hazardNo || 0);
+    if (s === 'reviewers-desc') return (b.reviewerCount || 0) - (a.reviewerCount || 0);
+    const av = a.overall == null ? 999 : a.overall, bv = b.overall == null ? 999 : b.overall;
+    return s === 'score-desc' ? bv - av : av - bv;
+  });
+
+  const total = rows.length;
+  const pages = Math.max(1, Math.ceil(total / hzP.size));
+  if (hzP.page > pages) hzP.page = pages;
+  if (hzP.page < 1) hzP.page = 1;
+  const pageRows = rows.slice((hzP.page - 1) * hzP.size, hzP.page * hzP.size);
+
+  $('hzCount').textContent = `共 ${total} 条` + (total !== S.hazardRows.length ? ` / 全部 ${S.hazardRows.length} 条` : '');
+
+  // 存量数据提醒：严重度没标出来，就发现不了「重大隐患识别出错」
+  const cs0 = S.criticalStat || {};
+  const unlabeled = cs0.unlabeled || 0;
+  $('hzSevNote').innerHTML = (cs0.total && unlabeled)
+    ? `<div class="qnote" style="margin:10px 0 0">还有 <b>${unlabeled}</b> / ${cs0.total} 条已评隐患<b>未标注严重度</b>
+        —— 没标注就发现不了「重大隐患识别出错」，建议让工程师点开卡片补标（手机端评分面板里选「重大隐患」即可）。
+        ${cs0.criticalWrong ? `当前已标出 <b>${cs0.criticalWrong}</b> 条识别出错，见上方红线卡。` : ''}</div>`
+    : (cs0.total
+      ? `<div class="qnote ok" style="margin:10px 0 0">${cs0.total} 条已评隐患<b>全部标注了严重度</b>，重大隐患风险面完整。</div>`
+      : '');
+
+  const hh = ['记录编号', '识别时间', '部门', '检查人', '隐患名称', '严重度', '参评', '真实性', '描述符合性', '依据适用性', '引用准确性', '综合均分', '判定', '修改建议 / 补充意见'];
+  $('tHz').innerHTML = '<thead><tr>' + hh.map((h) => `<th>${h}</th>`).join('') + '</tr></thead><tbody>' +
+    (pageRows.map((h) => {
+      const verdict = h.issues > 0
+        ? `<span class="pill p-o">${h.issues} 人存疑</span>`
+        : h.passes > 0 ? `<span class="pill p-g">${h.passes} 人认可</span>` : '<span class="pill p-n">—</span>';
+      const cmt = h.comments.length
+        ? h.comments.map((c) => {
+            const parts = [];
+            if (c.advice) parts.push('建议：' + esc(c.advice));
+            if (c.note) parts.push('补充：' + esc(c.note));
+            return `<b>${esc(c.reviewer)}</b> ${parts.join(' ／ ')}`;
+          }).join('<br>')
+        : '<span class="muted">—</span>';
+      return `<tr>
+        <td class="muted">${esc(h.recordId)}</td>
+        <td class="muted">${esc((h.time || '').slice(0, 10) || '—')}</td>
+        <td>${esc(h.dept || '—')}</td>
+        <td>${esc(h.inspector || '—')}</td>
+        <td><span class="hno">${h.hazardNo || 0}</span><b>${esc(h.name || '—')}</b></td>
+        <td>${sevTagHtml(h)}</td>
+        <td class="num">${h.reviewerCount}</td>
+        <td class="num">${num(h.dimAvg.real)}</td>
+        <td class="num">${num(h.dimAvg.desc)}</td>
+        <td class="num">${num(h.dimAvg.basis)}</td>
+        <td class="num">${num(h.dimAvg.cite)}</td>
+        <td class="num"><span class="pill ${pillOf(h.overall)}">${h.overall == null ? '—' : h.overall}</span></td>
+        <td>${verdict}</td>
+        <td class="cmt">${cmt}</td>
+      </tr>`;
+    }).join('') || '<tr><td colspan="14" class="empty">没有符合筛选条件的隐患</td></tr>') + '</tbody>';
+
+  $('hzPager').innerHTML = pagerHtml(total, hzP.page, hzP.size);
+}
+
+/* ---------------- 漏检复核（带筛选） ---------------- */
+function renderNone() {
+  const ns = S.noneStat || { total: 0, reviewed: 0, confirmed: 0, suspected: 0, progress: 0, criticalMiss: 0, majorMiss: 0 };
+  $('noneKpi').innerHTML = [
+    ['空场景总数', ns.total, 'AI 未识别到隐患'],
+    ['已复核', ns.reviewed, `进度 ${ns.progress}%`],
+    ['确认无隐患', ns.confirmed, '复核后认定确实没有'],
+    ['疑似漏检', ns.suspected, '需要补录的隐患'],
+    ['重大漏检', ns.criticalMiss || 0, '权重 ×10 · 红线问题'],
+  ].map(([k, v, d], i) => `<div class="kpi" style="padding:12px${i === 4 && v ? ';border-color:#f0b4b4;background:#fff6f6' : ''}">
+    <div class="k"${i === 4 && v ? ' style="color:var(--red)"' : ''}>${k}</div>
+    <div class="v" style="font-size:21px${i === 4 && v ? ';color:var(--red)' : ''}">${v}</div>
+    <div class="d">${d}</div></div>`).join('');
+
+  const all = S.noneRows || [];
+  const kw = nF.kw.trim().toLowerCase();
+  const rows = all.filter((n) => {
+    if (nF.dept !== 'all' && deptOf(n.dept) !== nF.dept) return false;
+    if (nF.inspector !== 'all' && inspectorOf(n.inspector) !== nF.inspector) return false;
+    if (nF.status !== 'all' && n.status !== nF.status) return false;
+    if (nF.sev !== 'all' && !(n.status === 'suspected' && n.severity === nF.sev)) return false;
+    if (kw) {
+      const hay = (n.recordId + ' ' + (n.inspector || '') + ' ' + (n.summary || '')).toLowerCase();
+      if (!hay.includes(kw)) return false;
+    }
+    return true;
+  });
+
+  const total = rows.length;
+  const pages = Math.max(1, Math.ceil(total / nP.size));
+  if (nP.page > pages) nP.page = pages;
+  if (nP.page < 1) nP.page = 1;
+  const pageRows = rows.slice((nP.page - 1) * nP.size, nP.page * nP.size);
+
+  $('nCount').textContent = `共 ${total} 条` + (total !== all.length ? ` / 全部 ${all.length} 条` : '');
+
+  const nh = ['记录编号', '识别时间', '部门', '检查人员', 'AI 对画面的描述', '复核', '结论', '严重度', '疑似漏检说明 / 建议依据'];
+  $('tNone').innerHTML = '<thead><tr>' + nh.map((h) => `<th>${h}</th>`).join('') + '</tr></thead><tbody>' +
+    (pageRows.map((n) => {
+      const st = n.status === 'suspected' ? '<span class="pill p-r">疑似漏检</span>'
+        : n.status === 'confirmed' ? '<span class="pill p-g">确认无隐患</span>'
+        : '<span class="pill p-n">未复核</span>';
+      const sev = n.status === 'suspected' && n.severity
+        ? `<span class="sevtag sev-${n.severity}">${esc(n.severityLabel || n.severity)} ×${n.weight}</span>`
+        : '<span class="muted">—</span>';
+      const detail = n.notes && n.notes.length
+        ? n.notes.map((x) => {
+            const parts = [];
+            if (x.desc) parts.push('漏检：' + esc(x.desc));
+            if (x.basis) parts.push('依据：' + esc(x.basis));
+            return `<b>${esc(x.reviewer)}</b> ${parts.join(' ／ ')}`;
+          }).join('<br>')
+        : '<span class="muted">—</span>';
+      return `<tr>
+        <td class="muted">${esc(n.recordId)}</td>
+        <td class="muted">${esc((n.time || '').slice(0, 10) || '—')}</td>
+        <td>${esc(n.dept || '—')}</td>
+        <td>${esc(n.inspector || '—')}</td>
+        <td class="cmt" style="max-width:300px">${esc(n.summary || '—')}</td>
+        <td class="num">${n.reviewerCount}</td>
+        <td>${st}</td>
+        <td>${sev}</td>
+        <td class="cmt">${detail}</td>
+      </tr>`;
+    }).join('') || '<tr><td colspan="9" class="empty">没有符合筛选条件的记录</td></tr>') + '</tbody>';
+
+  $('nPager').innerHTML = pagerHtml(total, nP.page, nP.size);
+}
+
+/* ================= 模型质量评估 ================= */
+// 口径：把「人工评分」二值化成检测问题，才能算查准率 / 召回率 / 准确率。
+//   TP 有隐患 + 真实性均分 ≥ 阈值 → 主体成立（报对了）
+//   FP 有隐患 + 真实性均分 < 阈值 → 主体不成立（误报）
+//   FN AI 未报 + 复核判「疑似漏检」 → 漏检
+//   TN AI 未报 + 复核判「确认无隐患」 → 排除对
+// 未复核的空场景不进分母（否则会凭空把召回率压下去），这一点在页面上明确提示。
+const Q = { thr: 90, unit: 'day', smooth: 'raw', scope: 'cum', weight: 'even' };
+const Q_LEVELS = [60, 65, 70, 75, 80, 85, 90, 95, 100];
+
+const qItems = () => (S.quality && S.quality.items) || [];
+const qNone = () => (S.quality && S.quality.none) || [];
+const qLine = () => (S.quality && S.quality.line) || 90;
+const pct = (v) => (v == null || !isFinite(v) ? null : Math.round(v * 1000) / 10);
+const pctS = (v) => (pct(v) == null ? '—' : pct(v) + '%');
+
+/** 按阈值重算混淆矩阵 —— 纯前端，拖阈值即时联动
+ *  加权口径：漏检按严重度取权（一般×1 / 较大×3 / 重大×10），
+ *  已报隐患一律按 1 计（AI 报出来的隐患严重度未知，不能凭空加权）。 */
+function qMatrix(thr, items, nones, weighted) {
+  const its = items || qItems();
+  const nns = nones || qNone();
+  const useW = weighted != null ? weighted : Q.weight === 'sev';
+  let TP = 0, FP = 0, FN = 0, TN = 0;
+  let wTP = 0, wFP = 0, wFN = 0, wTN = 0;
+  for (const it of its) { if (it.ra >= thr) { TP++; wTP++; } else { FP++; wFP++; } }
+  for (const nr of nns) {
+    const w = useW ? (Number(nr.w) || 1) : 1;
+    if (nr.v) { FN++; wFN += w; } else { TN++; wTN += w; }
+  }
+  const N = TP + FP + FN + TN;
+  const ratio = (tp, fp, fn) => {
+    const P = tp + fp ? tp / (tp + fp) : null;
+    const R = tp + fn ? tp / (tp + fn) : null;
+    const F1 = P != null && R != null && P + R > 0 ? (2 * P * R) / (P + R) : null;
+    return { P, R, F1 };
+  };
+  const even = ratio(TP, FP, FN);
+  const wt = ratio(wTP, wFP, wFN);
+  const A = N ? (TP + TN) / N : null;
+  return {
+    thr, TP, FP, FN, TN, N, wTP, wFP, wFN, wTN,
+    P: even.P, R: even.R, F1: even.F1, A,
+    wP: wt.P, wR: wt.R, wF1: wt.F1,
+    // 当前口径下的主数值，KPI 直接读这三个
+    curP: useW ? wt.P : even.P,
+    curR: useW ? wt.R : even.R,
+    curF1: useW ? wt.F1 : even.F1,
+    weighted: useW,
+    reported: TP + FP, missed: FN + TN,
+  };
+}
+
+const meanOf = (a) => (a.length ? Math.round((a.reduce((x, y) => x + y, 0) / a.length) * 10) / 10 : null);
+
+/* -------- 卡 1：KPI + 混淆矩阵 + 可信度警示 -------- */
+function renderQuality() {
+  const m = qMatrix(Q.thr);
+  const its = qItems(), nns = qNone();
+  const ns = S.noneStat || { total: 0, reviewed: 0 };
+  const sum = S.summary;
+  const cov = ns.total ? Math.round((nns.length / ns.total) * 1000) / 10 : 0;
+  const single = its.filter((x) => x.n < 2).length;
+
+  const kpi = (k, v, d, good, warn) => `<div class="kpi">
+    <div class="k">${k}</div>
+    <div class="v"${good == null ? '' : ` style="color:${colorOf(good)}"`}>${v}</div>
+    <div class="d">${d}${warn ? ` <b style="color:var(--red)">· ${warn}</b>` : ''}</div></div>`;
+  const lowCov = cov < 60;
+  const wTag = m.weighted ? '（加权）' : '';
+  $('qKpis').innerHTML = [
+    kpi('查准率（精确率）', pctS(m.curP), `报出 ${m.reported} 条，主体成立 ${m.TP} · 误报 ${m.FP}`, pct(m.curP)),
+    kpi('召回率' + wTag, pctS(m.curR),
+      m.weighted ? `加权：找回 ${m.wTP} / 应发现 ${m.wTP + m.wFN}（权重单位）` : `应发现 ${m.TP + m.FN} 条，找回 ${m.TP} · 漏掉 ${m.FN}`,
+      lowCov ? null : pct(m.curR), lowCov ? `漏检复核只覆盖 ${cov}%，数值偏乐观` : ''),
+    kpi('F1' + wTag, pctS(m.curF1), '查准率与召回率的调和平均', lowCov ? null : pct(m.curF1)),
+    kpi('准确率', pctS(m.A), `${m.N} 条已复核样本中判对 ${m.TP + m.TN} 条`, pct(m.A)),
+  ].join('');
+
+  const cell = (cls, name, val, desc) =>
+    `<div class="qcell ${cls}"><div class="n">${name}</div><div class="v">${val}</div><div class="d">${desc}</div></div>`;
+  $('qMatrix').innerHTML =
+    '<div></div><div class="ch">人工复核：主体成立</div><div class="ch">人工复核：主体不成立</div>' +
+    '<div class="rh">AI 报出隐患</div>' +
+    cell('tp', 'TP · 报对了', m.TP, m.reported ? `占报出量 ${pctS(m.TP / m.reported)}` : '暂无样本') +
+    cell('fp', 'FP · 误报', m.FP, m.reported ? `占报出量 ${pctS(m.FP / m.reported)}` : '暂无样本') +
+    '<div class="rh">AI 未报隐患</div>' +
+    cell('fn', 'FN · 漏检', m.FN, m.missed ? `占未报量 ${pctS(m.FN / m.missed)}` : '暂无样本') +
+    cell('tn', 'TN · 排除对', m.TN, m.missed ? `占未报量 ${pctS(m.TN / m.missed)}` : '暂无样本');
+
+  $('qThrHint').textContent = `真实性均分 ≥ ${Q.thr} 分视为「主体成立」· 当前样本 ${m.N} 条` +
+    (m.weighted ? ' · 漏检按严重度加权' : ' · 漏检等权');
+
+  // 漏检严重度分布条
+  const sevDefs = (S.quality && S.quality.severities) || [];
+  const bySev = (S.noneStat && S.noneStat.bySeverity) || {};
+  const sevStrip = m.FN
+    ? `<div class="charttip" style="margin-top:12px">已标记的漏检按严重度分布：${
+        sevDefs.map((s) => `<span class="sevtag sev-${s.key}" style="margin-right:5px">${s.label} ${bySev[s.key] || 0} 条 ×${s.weight}</span>`).join('')
+      } · 加权漏检量 <b>${m.wFN}</b>（等权口径 ${m.FN} 条）</div>`
+    : '';
+
+  // 已识别隐患的严重度分布 —— 和漏检并列：漏检是「没报」，这里是「报了但报错」
+  const cs = S.criticalStat || {};
+  const hzBySev = cs.bySeverity || {};
+  const hzStrip = cs.labeled
+    ? `<div class="charttip" style="margin-top:8px">已识别隐患按人工标注的严重度分布：${
+        sevDefs.map((s) => `<span class="sevtag sev-${s.key}" style="margin-right:5px">${s.label} ${hzBySev[s.key] || 0} 条 ×${s.weight}</span>`).join('')
+      } · 未标注 ${cs.unlabeled} 条${
+        cs.criticalWrong ? ` · <b style="color:var(--red)">其中重大隐患识别出错 ${cs.criticalWrong} 条</b>` : ''
+      }</div>`
+    : '';
+
+  const warns = [];
+  if (!m.N) {
+    warns.push('还没有任何人工复核数据，指标无法计算。');
+  } else {
+    if (cov < 60) warns.push(`漏检复核只覆盖 <b>${nns.length} / ${ns.total}</b> 条空场景（${cov}%）。未复核的空场景<b>不计入分母</b>，所以现在的召回率是<b>偏乐观</b>的估计 —— 把剩余空场景复核完，真实召回率只会更低。`);
+    if (m.N < 30) warns.push(`已复核样本仅 <b>${m.N}</b> 条，指标波动大，建议累计到 30 条以上再下结论。`);
+    if (single) warns.push(`有 <b>${single}</b> 条隐患只有 1 人评分，无法校验评分一致性（分歧度需要 ≥ 2 人）。`);
+    if (cs.total && cs.labeled / cs.total < 0.5) warns.push(`已识别隐患中只有 <b>${cs.labeled} / ${cs.total}</b> 条标注了严重度。标注率低时，「重大隐患识别出错」的条数会被<b>低估</b> —— 标了才知道有没有。`);
+    if (sum.progress < 100) warns.push(`隐患评分进度 <b>${sum.progress}%</b>，还有 ${sum.totalHazards - sum.reviewedHazards} 条未评 —— 未评的不进矩阵，样本仍有偏。`);
+  }
+  $('qWarn').innerHTML = sevStrip + hzStrip + (warns.length
+    ? `<div class="qnote"><b>指标可信度提醒</b><ul>${warns.map((w) => `<li>${w}</li>`).join('')}</ul></div>`
+    : '<div class="qnote ok">空场景已全部复核、隐患已全部评分，样本覆盖完整，指标可直接采信。</div>');
+}
+
+/* -------- 卡 0：重大漏检红线告警（有才显示） -------- */
+function renderRedline() {
+  const ns = S.noneStat || {};
+  const cs = S.criticalStat || {};
+  // 两类红线并列：漏检 = 没报出来；识别出错 = 报出来了但报错
+  const missRows = (S.noneRows || []).filter((n) => n.severity === 'critical');
+  const wrongRows = cs.wrongRows || [];
+  const total = missRows.length + wrongRows.length;
+  $('cardRedline').style.display = total ? '' : 'none';
+  if (!total) return;
+
+  const m = qMatrix(Q.thr, null, null, true);
+  const mE = qMatrix(Q.thr, null, null, false);
+  $('rlTitle').textContent = `⚠ 重大隐患风险 ${total} 项 —— 不可接受`;
+  $('rlKpis').innerHTML = [
+    ['重大漏检', missRows.length, 'AI 没报出来 · 权重 ×10'],
+    ['重大识别出错', wrongRows.length, '报出来了但报错 · 权重 ×10'],
+    ['较大漏检', ns.majorMiss || 0, '权重 ×3'],
+    ['加权召回率', pctS(m.wR), `等权口径 ${pctS(mE.R)}`],
+    ['加权漏检量', ns.weightedMiss || 0, '一般×1 / 较大×3 / 重大×10'],
+    ['加权识别出错量', cs.weightedWrong || 0, '识别出错的隐患权重之和'],
+  ].map(([k, v, d]) => `<div class="rlkpi"><div class="k">${k}</div><div class="v">${v}</div><div class="d">${d}</div></div>`).join('');
+
+  const th = ['类型', '记录编号', '部门', '隐患内容', '复核 / 评审人', '识别时间', '依据 / 评审意见'];
+  const trs = [];
+  for (const n of missRows) {
+    const notes = n.notes || [];
+    const basis = notes.map((x) => x.basis).filter(Boolean);
+    trs.push(`<tr>
+      <td><span class="sevtag sev-critical">重大漏检</span></td>
+      <td class="muted">${esc(n.recordId)}</td>
+      <td>${esc(n.dept || '—')}</td>
+      <td class="cmt">${notes.length ? notes.map((x) => esc(x.desc || '—')).join('<br>') : '<span class="muted">—</span>'}</td>
+      <td>${esc((n.reviewers || []).join('、') || '—')}</td>
+      <td class="muted">${esc((n.time || '').slice(0, 10) || '—')}</td>
+      <td class="cmt">${basis.length ? basis.map(esc).join('<br>') : '<span class="muted">—</span>'}</td>
+    </tr>`);
+  }
+  for (const w of wrongRows) {
+    const cm = (w.comments || []).map((c) => [c.reviewer, c.advice, c.note].filter(Boolean).join('：')).filter(Boolean);
+    trs.push(`<tr>
+      <td><span class="sevtag sev-critical">重大识别出错</span></td>
+      <td class="muted">${esc(w.recordId)}</td>
+      <td>${esc(w.dept || '—')}</td>
+      <td class="cmt">${esc(w.hazardNo + '. ' + (w.name || '—'))}</td>
+      <td>${esc((w.reviewers || []).join('、') || '—')}</td>
+      <td class="muted">${esc((w.time || '').slice(0, 10) || '—')}</td>
+      <td class="cmt">${cm.length ? cm.map(esc).join('<br>') : '<span class="muted">—</span>'}</td>
+    </tr>`);
+  }
+  $('tRedline').innerHTML = '<thead><tr>' + th.map((h) => `<th>${h}</th>`).join('') + '</tr></thead><tbody>' + trs.join('') + '</tbody>';
+}
+
+/* -------- 卡 2：阈值敏感性曲线 -------- */
+function renderSens() {
+  const mats = Q_LEVELS.map((t) => qMatrix(t));
+  const keys = Q_LEVELS.map(String);
+  const mk = (name, color, get) => {
+    const values = {};
+    Q_LEVELS.forEach((t, i) => { values[keys[i]] = pct(get(mats[i])) || 0; });
+    return { name, color, values };
+  };
+  const series = [
+    mk('查准率', '#1d4ed8', (m) => m.P),
+    mk('召回率', '#15803d', (m) => m.R),
+    mk('F1', '#c2410c', (m) => m.F1),
+  ];
+  const idx = Math.max(0, Q_LEVELS.indexOf(Q.thr));
+  $('sensChart').innerHTML = lineChartSvg(keys, series, {
+    unit: '%', yMax: 100, xLabel: (d) => d + '%',
+    vline: idx, vlineLabel: '当前 ' + Q.thr, vlineColor: '#b91c1c',
+  });
+  $('sensLegend').innerHTML = series.map((s) => `<span><i style="background:${s.color}"></i>${s.name}</span>`).join('');
+
+  const cur = mats[idx];
+  const tips = [];
+  if (!cur.N) {
+    tips.push('暂无已复核样本，无法绘制敏感性曲线。');
+  } else {
+    tips.push(`当前阈值 ${Q.thr} 分：查准率 ${pctS(cur.P)}、召回率 ${pctS(cur.R)}、F1 ${pctS(cur.F1)}。`);
+    const best = mats.reduce((b, m) => (m.F1 != null && (b.F1 == null || m.F1 > b.F1) ? m : b), { F1: null });
+    if (best.F1 != null) {
+      tips.push(best.thr === Q.thr
+        ? `F1 的最优点就在当前阈值 ${Q.thr} 分，阈值本身没有优化空间。`
+        : `F1 最优点在阈值 ${best.thr} 分（查准 ${pctS(best.P)} / 召回 ${pctS(best.R)} / F1 ${pctS(best.F1)}），可考虑往这个方向调。`);
+    }
+    const ps = mats.map((m) => pct(m.P)).filter((v) => v != null);
+    const lo = Math.min(...ps), hi = Math.max(...ps);
+    if (hi - lo < 15) {
+      tips.push(`阈值从 ${Q_LEVELS[0]} 扫到 ${Q_LEVELS[Q_LEVELS.length - 1]}，查准率只在 ${lo}% ~ ${hi}% 之间挪动 —— <b>说明短板不在阈值松紧，而在识别主体本身就不准</b>，光调阈值救不回来，得回到识别能力上改。`);
+    } else {
+      tips.push(`阈值扫下来查准率跨度 ${Math.round((hi - lo) * 10) / 10} 个百分点，说明阈值确实在起作用，可以拿它做查准与召回之间的取舍。`);
+    }
+  }
+  $('sensTip').innerHTML = tips.join(' ');
+}
+
+/* -------- 卡 3：弱点四象限 -------- */
+function topicStats(thr) {
+  const map = new Map();
+  const get = (t) => {
+    if (!map.has(t)) map.set(t, { topic: t, TP: 0, FP: 0, FN: 0, TN: 0, ra: [], da: [], ba: [], ca: [], names: [] });
+    return map.get(t);
+  };
+  for (const it of qItems()) {
+    const g = get(it.t || '其他');
+    if (it.ra >= thr) g.TP++; else g.FP++;
+    if (it.ra != null) g.ra.push(it.ra);
+    if (it.da != null) g.da.push(it.da);
+    if (it.ba != null) g.ba.push(it.ba);
+    if (it.ca != null) g.ca.push(it.ca);
+    if (it.m) g.names.push(it.m);
+  }
+  for (const nr of qNone()) {
+    const g = get(nr.t || '未分类');
+    if (nr.v) g.FN++; else g.TN++;
+  }
+  return [...map.values()].map((g) => {
+    const rep = g.TP + g.FP, miss = g.FN + g.TN;
+    const ba = meanOf(g.ba), ca = meanOf(g.ca);
+    const pair = [ba, ca].filter((v) => v != null);
+    return {
+      topic: g.topic, n: rep + miss, rep, miss,
+      P: rep ? g.TP / rep : null,
+      R: miss ? g.TP / (g.TP + g.FN) : null,
+      ra: meanOf(g.ra), da: meanOf(g.da), ba, ca,
+      pair: pair.length ? Math.round((pair.reduce((a, b) => a + b, 0) / pair.length) * 10) / 10 : null,
+      lowN: g.ba.filter((v) => v < qLine()).length + g.ca.filter((v) => v < qLine()).length,
+      names: g.names,
+    };
+  }).sort((a, b) => b.n - a.n);
+}
+
+function renderWeak() {
+  const stats = topicStats(Q.thr);
+  const m = qMatrix(Q.thr);
+  const pts = stats.filter((s) => s.pair != null && s.P != null);
+  const big = pts.filter((s) => s.n >= 5);
+  const cross = {
+    x: pct(m.P) != null ? Math.round(pct(m.P)) : 50,
+    y: (big.length ? big : pts).length
+      ? Math.round((big.length ? big : pts).reduce((a, s) => a + s.pair, 0) / (big.length ? big : pts).length)
+      : 50,
+  };
+  const maxN = Math.max(1, ...pts.map((s) => s.n));
+  const palette = ['#1d4ed8', '#15803d', '#c2410c', '#7c3aed', '#0891b2', '#be123c', '#4d7c0f', '#a16207', '#0f766e', '#9333ea', '#64748b'];
+  const colorOfTopic = (t) => palette[Math.max(0, stats.findIndex((s) => s.topic === t)) % palette.length];
+
+  if (!pts.length) {
+    $('weakChart').innerHTML = '<div class="empty">暂无足够的复核数据，无法定位弱点主题</div>';
+    $('weakTip').textContent = '';
+  } else {
+    const points = pts.map((s) => {
+      const small = s.n < 5;
+      return {
+        x: pct(s.P),
+        y: s.pair,
+        r: small ? 5 : 6 + Math.sqrt(s.n / maxN) * 15,
+        color: small ? '#94a3b8' : colorOfTopic(s.topic),
+        label: s.topic,
+        small,
+        title: `${s.topic}｜样本 ${s.n} 条（报出 ${s.rep} / 未报 ${s.miss}）\n查准率 ${pctS(s.P)}｜召回率 ${pctS(s.R)}｜对标分 ${s.pair}%\n真实性 ${s.ra ?? '—'}｜描述符合性 ${s.da ?? '—'}｜依据适用性 ${s.ba ?? '—'}｜引用准确性 ${s.ca ?? '—'}${small ? '\n（样本 < 5 条，仅供参考）' : ''}`,
+      };
+    });
+    $('weakChart').innerHTML = scatterSvg(points, { cross });
+
+    const tips = [];
+    const worstP = big.slice().sort((a, b) => a.P - b.P)[0];
+    const worstY = big.slice().sort((a, b) => a.pair - b.pair)[0];
+    if (worstP && pct(worstP.P) < 70) {
+      tips.push(`查准率最低的是<b>「${esc(worstP.topic)}」</b>（${pctS(worstP.P)}，样本 ${worstP.n} 条）—— 这类隐患报出来经常被判定主体不成立，是误报重灾区，需要收紧该场景的判定门槛或补负样本。`);
+    }
+    if (worstY && worstY.pair < 75) {
+      tips.push(`对标分最低的是<b>「${esc(worstY.topic)}」</b>（${worstY.pair}%）—— 隐患找得对但法规条款对不上，属于知识库 / 条款匹配问题，要核对这类隐患引用的标准。`);
+    }
+    const smallN = pts.length - big.length;
+    if (smallN) tips.push(`另有 ${smallN} 个主题样本不足 5 条（灰色空心点，不参与结论），样本攒够再看。`);
+    $('weakTip').innerHTML = tips.length ? tips.join(' ') : '各主题的查准率与对标分都在警戒线以上，暂未发现明显短板。';
+  }
+
+  const dims = [['ra', '真实性'], ['da', '描述符合性'], ['ba', '依据适用性'], ['ca', '引用准确性']];
+  const th = ['主题', '样本', '报出', '未报', '查准率', '召回率', '真实性', '描述符合性', '依据适用性', '引用准确性', '短板'];
+  $('tWeak').innerHTML = '<thead><tr>' + th.map((h) => `<th>${h}</th>`).join('') + '</tr></thead><tbody>' +
+    (stats.map((s) => {
+      const vals = dims.map(([k, label]) => ({ label, v: s[k] })).filter((x) => x.v != null);
+      const worst = vals.slice().sort((a, b) => a.v - b.v)[0];
+      const small = s.n < 5;
+      return `<tr>
+        <td><b>${esc(s.topic)}</b>${small ? ' <span class="pill p-n">样本少</span>' : ''}</td>
+        <td class="num">${s.n}</td>
+        <td class="num">${s.rep}</td>
+        <td class="num">${s.miss}</td>
+        <td class="num">${s.P == null ? '<span class="muted">—</span>' : `<span class="pill ${pillOf(pct(s.P))}">${pctS(s.P)}</span>`}</td>
+        <td class="num">${s.R == null ? '<span class="muted">—</span>' : pctS(s.R)}</td>
+        <td class="num">${num(s.ra)}</td>
+        <td class="num">${num(s.da)}</td>
+        <td class="num">${num(s.ba)}</td>
+        <td class="num">${num(s.ca)}</td>
+        <td>${worst ? `<span class="pill ${pillOf(worst.v)}">${worst.label} ${worst.v}</span>` : '<span class="muted">—</span>'}</td>
+      </tr>`;
+    }).join('') || '<tr><td colspan="11" class="empty">暂无数据</td></tr>') + '</tbody>';
+}
+
+/* -------- 卡 4：识别能力趋势线 -------- */
+function weekStart(day) {
+  const d = new Date(day + 'T00:00:00');
+  const wd = (d.getDay() + 6) % 7;          // 周一 = 0
+  d.setDate(d.getDate() - wd);
+  return isoDay(d);
+}
+const monthKeyOf = (day) => String(day).slice(0, 7);
+
+function trendRows() {
+  const keyOf = Q.unit === 'week' ? weekStart : Q.unit === 'month' ? monthKeyOf : (d) => d;
+  const map = new Map();
+  const get = (k) => { if (!map.has(k)) map.set(k, { k, TP: 0, FP: 0, FN: 0, TN: 0 }); return map.get(k); };
+  for (const it of qItems()) {
+    if (!it.d) continue;
+    const g = get(keyOf(it.d));
+    if (it.ra >= Q.thr) g.TP++; else g.FP++;
+  }
+  for (const nr of qNone()) {
+    if (!nr.d) continue;
+    const g = get(keyOf(nr.d));
+    if (nr.v) g.FN++; else g.TN++;
+  }
+  const ratio = (tp, fp, fn) => {
+    const P = tp + fp ? tp / (tp + fp) : null;
+    const R = tp + fn ? tp / (tp + fn) : null;
+    const F1 = P != null && R != null && P + R > 0 ? (2 * P * R) / (P + R) : null;
+    return { P, R, F1 };
+  };
+
+  // 累计口径：截至该期为止的全部样本 —— 单期样本太少时，只有累计曲线读得出走向
+  let cTP = 0, cFP = 0, cFN = 0, cTN = 0;
+  return [...map.values()].sort((a, b) => String(a.k).localeCompare(String(b.k))).map((g) => {
+    cTP += g.TP; cFP += g.FP; cFN += g.FN; cTN += g.TN;
+    const per = ratio(g.TP, g.FP, g.FN);
+    const cum = ratio(cTP, cFP, cFN);
+    const use = Q.scope === 'cum' ? cum : per;
+    return {
+      k: g.k,
+      n: g.TP + g.FP + g.FN + g.TN,
+      cumN: cTP + cFP + cFN + cTN,
+      // 该期没有分母时不画点（null = 断点），而不是画成 0 分
+      P: use.P, R: use.R, F1: use.F1,
+      perP: per.P, perR: per.R, perF1: per.F1,
+    };
+  });
+}
+
+/** 居中移动平均 —— 样本少的期次波动大，平滑后才看得出走向 */
+function movingAvg(rows, get, win) {
+  const half = Math.floor(win / 2);
+  return rows.map((r, i) => {
+    const seg = rows.slice(Math.max(0, i - half), Math.min(rows.length, i + half + 1))
+      .map(get).filter((v) => v != null);
+    return seg.length ? seg.reduce((a, b) => a + b, 0) / seg.length : null;
+  });
+}
+
+function renderTrend() {
+  const rows = trendRows();
+  const days = rows.map((r) => r.k);
+  const unitName = Q.unit === 'week' ? '周' : Q.unit === 'month' ? '月' : '天';
+  const scopeName = Q.scope === 'cum' ? '累计' : '单期';
+
+  if (days.length < 2) {
+    $('trendChart').innerHTML = `<div class="empty">数据不足 —— 至少要有 2 个${unitName}份的复核数据才能画趋势线（当前只有 ${days.length} 个）</div>`;
+    $('trendLegend').innerHTML = '';
+    $('qTrendSum').textContent = '';
+    $('trendTip').textContent = '继续积累复核数据后，这里会显示识别能力随时间的走向。';
+    return;
+  }
+
+  const use = {};
+  for (const k of ['P', 'R', 'F1']) {
+    const raw = rows.map((r) => r[k]);
+    use[k] = Q.smooth === 'ma3' ? movingAvg(rows, (r) => r[k], 3) : raw;
+  }
+  const mkS = (name, color, arr) => {
+    const values = {};
+    // null 原样透传 → 折线图会断开，而不是把「无样本」画成 0 分
+    days.forEach((d, i) => { values[d] = arr[i] == null ? null : Math.round(arr[i] * 1000) / 10; });
+    return { name, color, values };
+  };
+  const series = [
+    mkS('查准率', '#1d4ed8', use.P),
+    mkS('召回率', '#15803d', use.R),
+    mkS('F1', '#c2410c', use.F1),
+  ];
+  $('trendChart').innerHTML = lineChartSvg(days, series, { unit: '%', yMax: 100 });
+  $('trendLegend').innerHTML = series.map((s) => `<span><i style="background:${s.color}"></i>${s.name}</span>`).join('');
+
+  const first = rows[0], last = rows[rows.length - 1];
+  const dlt = (a, b) => (pct(a) == null || pct(b) == null ? '—'
+    : `${pct(b) - pct(a) >= 0 ? '+' : ''}${Math.round((pct(b) - pct(a)) * 10) / 10} 个百分点`);
+  $('qTrendSum').textContent = `共 ${days.length} 个${unitName}份 · ${rows.reduce((a, r) => a + r.n, 0)} 条复核样本 · ${scopeName}口径`;
+
+  const tips = [];
+  tips.push(`按${unitName}聚合，共 ${days.length} 个期次有复核数据，当前是<b>${scopeName}口径</b>。`);
+  tips.push(`首期（${first.k}）→ 末期（${last.k}）：查准率 ${pctS(first.P)} → ${pctS(last.P)}（${dlt(first.P, last.P)}），召回率 ${pctS(first.R)} → ${pctS(last.R)}（${dlt(first.R, last.R)}）。`);
+  if (Q.scope === 'cum') {
+    tips.push('累计口径下曲线天然平滑，适合判断整体能力走向；要看某一期的真实表现，切到「单期口径」。');
+  }
+  if (pct(last.F1) == null || pct(first.F1) == null) {
+    tips.push('有期次缺少复核样本，曲线出现断点 —— 样本补齐后才能判断趋势。');
+  } else if (pct(last.F1) > pct(first.F1)) {
+    tips.push('<b>F1 在往上走</b>，识别能力有提升趋势。');
+  } else if (pct(last.F1) < pct(first.F1)) {
+    tips.push('<b>F1 在往下走</b>，识别能力没有改善甚至退步 —— 需要结合上面的四象限定位具体短板。');
+  } else {
+    tips.push('F1 基本持平，暂时看不出识别能力的变化。');
+  }
+  if (Q.smooth === 'ma3') tips.push('当前显示的是 3 期移动平均，会抹平单期波动。');
+  tips.push('单期样本 < 5 条时波动极大，别把个别期次的涨跌当成能力变化。');
+  $('trendTip').innerHTML = tips.join(' ');
+}
+
+/* -------- 卡 5：依据对标诊断 -------- */
+function renderBasis() {
+  const line = qLine();
+  const its = qItems();
+  const map = new Map();
+  for (const it of its) {
+    const k = String(it.s || '').trim() || '未填写标准';
+    if (!map.has(k)) map.set(k, { std: k, n: 0, ba: [], ca: [], lows: [] });
+    const g = map.get(k);
+    g.n++;
+    if (it.ba != null) g.ba.push(it.ba);
+    if (it.ca != null) g.ca.push(it.ca);
+    if ((it.ba != null && it.ba < line) || (it.ca != null && it.ca < line)) g.lows.push(it);
+  }
+  const rows = [...map.values()].map((g) => ({
+    std: g.std, n: g.n, ba: meanOf(g.ba), ca: meanOf(g.ca), lowN: g.lows.length,
+    worst: g.lows.slice().sort((a, b) => ((a.ca ?? 0) + (a.ba ?? 0)) - ((b.ca ?? 0) + (b.ba ?? 0)))[0] || null,
+  })).sort((a, b) => (a.ca ?? 999) - (b.ca ?? 999) || b.n - a.n);
+
+  $('basisCap').innerHTML = `按「隐患引用的标准」分组看依据适用性与引用准确性 —— <b>认可线 ${line} 分</b>，低于该线的条目说明工程师认为条款套得不对或引错了。引用准确性低于 60 分的标准用红色标出。`;
+
+  const bh = ['引用标准', '样本', '依据适用性', '引用准确性', '低于认可线', '最差条目'];
+  $('tBasis').innerHTML = '<thead><tr>' + bh.map((h) => `<th>${h}</th>`).join('') + '</tr></thead><tbody>' +
+    (rows.map((r) => `<tr>
+      <td><b>${esc(r.std)}</b></td>
+      <td class="num">${r.n}</td>
+      <td class="num">${num(r.ba)}</td>
+      <td class="num">${r.ca == null ? '<span class="muted">—</span>' : `<span class="pill ${pillOf(r.ca)}">${r.ca}</span>`}</td>
+      <td class="num">${r.lowN ? `<span class="pill p-o">${r.lowN}</span>` : '<span class="muted">0</span>'}</td>
+      <td class="cmt">${r.worst ? `${esc((r.worst.d || '').slice(0, 10))} · ${esc(r.worst.m || '')}<br>依据适用性 ${r.worst.ba ?? '—'} / 引用准确性 ${r.worst.ca ?? '—'}` : '<span class="muted">—</span>'}</td>
+    </tr>`).join('') || '<tr><td colspan="6" class="empty">暂无已评分隐患</td></tr>') + '</tbody>';
+
+  const low = its
+    .filter((it) => (it.ba != null && it.ba < line) || (it.ca != null && it.ca < line))
+    .sort((a, b) => ((a.ba ?? 0) + (a.ca ?? 0)) - ((b.ba ?? 0) + (b.ca ?? 0)));
+  // 分页：条目多时「流式排下来」会拖出一条几千像素的长表，越往下越没人看
+  const bTotal = low.length;
+  const bPages = Math.max(1, Math.ceil(bTotal / basisP.size));
+  if (basisP.page > bPages) basisP.page = bPages;
+  if (basisP.page < 1) basisP.page = 1;
+  const bRows = low.slice((basisP.page - 1) * basisP.size, basisP.page * basisP.size);
+  $('basisLow').innerHTML = bTotal
+    ? `<div class="cap" style="margin:18px 0 8px">需要人工复核的对标问题条目（按对标分升序，共 ${bTotal} 条）</div>
+       <div class="tblbox"><table>
+         <thead><tr><th>识别时间</th><th>部门</th><th>主题</th><th>隐患名称</th><th>引用的标准</th><th>依据适用性</th><th>引用准确性</th></tr></thead>
+         <tbody>${bRows.map((it) => `<tr>
+           <td class="muted">${esc(it.d || '—')}</td>
+           <td>${esc(it.p || '—')}</td>
+           <td>${esc(it.t || '—')}</td>
+           <td><b>${esc(it.m || '—')}</b></td>
+           <td class="cmt" style="max-width:260px">${esc(it.s || '未填写')}</td>
+           <td class="num">${num(it.ba)}</td>
+           <td class="num">${num(it.ca)}</td>
+         </tr>`).join('')}</tbody>
+       </table></div>
+       <div class="pager" id="basisPager">${pagerHtml(bTotal, basisP.page, basisP.size)}</div>`
+    : `<div class="qnote ok" style="margin-top:14px">所有已评分隐患的依据适用性与引用准确性都在认可线 ${line} 分以上，对标质量良好。</div>`;
+}
+
+/* -------- 卡 6：评分分布直方图 -------- */
+const HIST_BUCKETS = [
+  { lb: '0-59', lo: 0, hi: 60 }, { lb: '60-69', lo: 60, hi: 70 }, { lb: '70-79', lo: 70, hi: 80 },
+  { lb: '80-89', lo: 80, hi: 90 }, { lb: '90-100', lo: 90, hi: 101 },
+];
+const HIST_DIMS = [
+  { key: 'ra', label: '隐患真实性', color: '#1d4ed8' },
+  { key: 'da', label: '描述符合性', color: '#0891b2' },
+  { key: 'ba', label: '依据适用性', color: '#c2410c' },
+  { key: 'ca', label: '引用准确性', color: '#7c3aed' },
+];
+
+function renderHist() {
+  const its = qItems();
+  const counts = {};
+  let maxN = 1;
+  for (const d of HIST_DIMS) {
+    counts[d.key] = HIST_BUCKETS.map(() => 0);
+    for (const it of its) {
+      const v = it[d.key];
+      if (v == null) continue;
+      const i = HIST_BUCKETS.findIndex((b) => v >= b.lo && v < b.hi);
+      if (i >= 0) counts[d.key][i]++;
+    }
+    for (const c of counts[d.key]) if (c > maxN) maxN = c;
+  }
+  $('qHist').innerHTML = HIST_BUCKETS.map((b, i) => {
+    const bars = HIST_DIMS.map((d) => {
+      const n = counts[d.key][i];
+      const h = Math.max(0, Math.round((n / maxN) * 100));
+      return `<div class="bw"><div class="cv">${n}</div><div class="bar" style="height:${h}%;background:${d.color}"
+        title="${d.label} · ${b.lb} 分：${n} 条"></div></div>`;
+    }).join('');
+    return `<div class="hb"><div class="bars">${bars}</div><div class="lb">${b.lb}</div></div>`;
+  }).join('');
+  $('qHistLegend').innerHTML = HIST_DIMS.map((d) => `<span><i style="background:${d.color}"></i>${d.label}</span>`).join('');
+
+  const tips = [];
+  let worstLabel = '', worstRate = -1;
+  for (const d of HIST_DIMS) {
+    const total = counts[d.key].reduce((a, b) => a + b, 0);
+    if (!total) continue;
+    const lowN = counts[d.key][0] + counts[d.key][1];
+    const rate = Math.round((lowN / total) * 1000) / 10;
+    tips.push(`${d.label} ${lowN}/${total} 条低于 70 分（${rate}%）`);
+    if (rate > worstRate) { worstRate = rate; worstLabel = d.label; }
+  }
+  $('qHistTip').innerHTML = tips.length
+    ? `低于 70 分的占比：${tips.join('；')}。<b>占比最高的「${worstLabel}」就是当前最该优先补的短板。</b>`
+    : '暂无评分数据。';
+}
+
+/* -------- 卡 7：评价人操作频率（督促 + 补分母） -------- */
+const actF = { unit: 'day', mode: 'daily', metric: 'count' };
+const actHidden = new Set();
+
+function renderAct() {
+  const rows = S.reviewerDaily || [];
+  const metric = actF.metric;
+  const unitName = actF.unit === 'week' ? '周' : '天';
+  const keyOfDay = actF.unit === 'week' ? weekStart : (d) => d;
+  const today = new Date().toISOString().slice(0, 10);
+  const allDays = rows.map((r) => r.day).filter(Boolean).sort();
+
+  // 日期轴：从最早一次操作铺到「今天」，把没动作的日子补 0 —— 停滞期一眼可见
+  let axis = [];
+  if (allDays.length) {
+    const endKey = allDays[allDays.length - 1] > today ? allDays[allDays.length - 1] : today;
+    if (actF.unit === 'day') {
+      axis = dayAxis(allDays[0], endKey);
+    } else {
+      const d = new Date(weekStart(allDays[0]) + 'T00:00:00');
+      const end = new Date(weekStart(endKey) + 'T00:00:00');
+      while (d <= end && axis.length < 300) { axis.push(isoDay(d)); d.setDate(d.getDate() + 7); }
+    }
+  }
+
+  // 按操作量排序，超过 8 人收敛成「其他」
+  const totals = new Map();
+  for (const r of rows) totals.set(r.reviewer, (totals.get(r.reviewer) || 0) + r[metric]);
+  const sorted = [...totals.entries()].sort((a, b) => b[1] - a[1]);
+  const groups = sorted.slice(0, 8).map(([k]) => ({ name: k, key: k }));
+  const rest = sorted.slice(8);
+  if (rest.length) groups.push({ name: '其他 ' + rest.length + ' 人', key: '__other', other: new Set(rest.map(([k]) => k)) });
+
+  const series = groups.filter((g) => !actHidden.has(g.name)).map((g, i) => {
+    const per = {};
+    for (const d of axis) per[d] = 0;
+    for (const r of rows) {
+      const hit = g.key === '__other' ? g.other.has(r.reviewer) : r.reviewer === g.key;
+      if (!hit) continue;
+      const d = keyOfDay(r.day);
+      if (per[d] !== undefined) per[d] += r[metric];
+    }
+    const values = {};
+    let acc = 0;
+    for (const d of axis) { acc += per[d]; values[d] = actF.mode === 'cum' ? acc : per[d]; }
+    return { name: g.name, color: SERIES_COLORS[i % SERIES_COLORS.length], values };
+  });
+
+  const totalOps = rows.reduce((a, r) => a + r[metric], 0);
+  const activeDays = new Set(rows.map((r) => r.day)).size;
+  $('actSum').textContent = `${rows.length ? sorted.length : 0} 位评审人 · 合计 ${totalOps} 次操作 · 有动作的${unitName}份 ${activeDays} 个`;
+  $('actChart').innerHTML = axis.length
+    ? lineChartSvg(axis, series, { unit: ' 次' })
+    : '<div class="empty">还没有任何评分操作</div>';
+  $('actLegend').innerHTML = groups.map((g) => {
+    const i = groups.indexOf(g);
+    const off = actHidden.has(g.name);
+    return `<span class="${off ? 'off' : ''}" data-series="${esc(g.name)}">
+      <i style="background:${SERIES_COLORS[i % SERIES_COLORS.length]}"></i>${esc(g.name)}</span>`;
+  }).join('');
+  $('actTip').textContent = axis.length
+    ? `时间轴 ${axis[0]} ~ ${axis[axis.length - 1]}（共 ${axis.length} 个${unitName}份，其中 ${activeDays} 个有评分操作）` +
+      `；${actF.mode === 'cum' ? '累计口径 —— 曲线走平就说明这段时间没人动' : '当期口径 —— 柱子掉到 0 就是那几天没人评'}。` +
+      (groups.length > 1 ? '点上方图例可隐藏 / 显示对应曲线。' : '')
+    : '';
+
+  // 进度榜
+  const revs = (S.reviewerRows || []).slice();
+  const maxC = Math.max(1, ...revs.map((r) => r.count));
+  const STATE = { active: ['st-active', '活跃'], watch: ['st-watch', '放缓'], stalled: ['st-stalled', '停滞'], none: ['st-none', '无记录'] };
+  const ah = ['评审人', '部门', '已评隐患', '漏检复核', '操作合计', '活跃天数', '近 7 天', '最后操作', '停滞', '状态'];
+  $('tAct').innerHTML = '<thead><tr>' + ah.map((h) => `<th>${h}</th>`).join('') + '</tr></thead><tbody>' +
+    (revs.map((r) => {
+      const st = STATE[r.state] || STATE.none;
+      return `<tr>
+        <td><b>${esc(r.reviewer)}</b></td>
+        <td>${esc(r.dept || '—')}</td>
+        <td class="num"><span class="actbar" style="width:${Math.max(2, Math.round((r.count / maxC) * 64))}px"></span>${r.count}</td>
+        <td class="num">${r.noneCount || 0}</td>
+        <td class="num">${r.count + (r.noneCount || 0)}</td>
+        <td class="num">${r.activeDays || 0}</td>
+        <td class="num">${r.recent7 || 0}</td>
+        <td class="muted">${esc(r.lastDay || '—')}</td>
+        <td class="num">${r.stalledDays == null ? '—' : r.stalledDays + ' 天'}</td>
+        <td><span class="st ${st[0]}">${st[1]}</span></td>
+      </tr>`;
+    }).join('') || '<tr><td colspan="10" class="empty">还没有人提交评分</td></tr>') + '</tbody>';
+
+  // 督促提示
+  const ns = S.noneStat || { total: 0, reviewed: 0, progress: 0 };
+  const stall = revs.filter((r) => r.state === 'stalled');
+  const watch = revs.filter((r) => r.state === 'watch');
+  const tips = [];
+  tips.push(`漏检复核进度 <b>${ns.progress}%</b>（已复核 ${ns.reviewed} / ${ns.total} 条）—— 还差 <b>${ns.total - ns.reviewed}</b> 条才能把召回率的分母补完整。`);
+  if (stall.length) tips.push(`<b style="color:var(--red)">${stall.length} 人已停滞超过 7 天</b>：${stall.map((r) => esc(r.reviewer) + '（' + r.stalledDays + ' 天）').join('、')}，建议直接催办。`);
+  if (watch.length) tips.push(`${watch.length} 人放缓（3~7 天没动作）：${watch.map((r) => esc(r.reviewer)).join('、')}。`);
+  if (!stall.length && !watch.length && revs.length) tips.push('所有评审人都在 3 天内有动作，进度正常。');
+  $('actTodo').innerHTML = tips.join(' ');
+}
+
+/* -------- 卡 8：评价人一致性 -------- */
+function renderAgree() {
+  const ag = S.agreement || {};
+  const revs = ag.reviewers || [];
+  const kappaHint = (k) => k == null ? '无法计算'
+    : k >= 0.8 ? '几乎完全一致' : k >= 0.6 ? '高度一致' : k >= 0.4 ? '中等一致' : k > 0 ? '一致性偏低' : '一致性差';
+
+  const kpi = (k, v, d, good) => `<div class="kpi">
+    <div class="k">${k}</div>
+    <div class="v"${good == null ? '' : ` style="color:${colorOf(good)}"`}>${v}</div>
+    <div class="d">${d}</div></div>`;
+  $('agKpis').innerHTML = [
+    kpi('双评覆盖率', (ag.coverage == null ? '—' : ag.coverage + '%'),
+      `已评 ${ag.reviewedHazards || 0} 条中 ${ag.dualHazards || 0} 条有 2 人以上评分`, ag.coverage),
+    kpi('判定一致率', (ag.agreeRate == null ? '—' : ag.agreeRate + '%'),
+      `${ag.allSame || 0} / ${ag.dualHazards || 0} 条全员判定相同`, ag.agreeRate),
+    kpi("Cohen's κ", (ag.kappa == null ? '—' : ag.kappa),
+      `${kappaHint(ag.kappa)}（实际一致 ${ag.po ?? '—'} · 期望一致 ${ag.pe ?? '—'}）`,
+      ag.kappa == null ? null : ag.kappa * 100),
+    kpi('平均分歧度', (ag.avgSpread == null ? '—' : ag.avgSpread + ' 分'),
+      `同一隐患多人综合分的平均极差，最大 ${ag.maxSpread ?? '—'} 分`,
+      ag.avgSpread == null ? null : 100 - ag.avgSpread),
+  ].join('');
+
+  const tips = [];
+  if (!ag.dualHazards) {
+    tips.push('还没有任何隐患被 2 人以上评过 —— 一致性无法评估。<b>建议安排至少 2 人复核同一批隐患</b>，否则「标准答案」本身没有校验。');
+  } else {
+    tips.push(`当前有 ${ag.dualHazards} 条隐患被 2 人以上评过（占已评隐患 ${ag.coverage}%），共 ${ag.pairObservations} 组两两比对。`);
+    if (ag.kappa != null) tips.push(`Cohen's κ = <b>${ag.kappa}</b>（${kappaHint(ag.kappa)}）—— κ 扣掉了「碰巧一致」，比单纯的一致率更能反映真实一致性。`);
+    if (ag.avgSpread != null && ag.avgSpread > 10) tips.push(`平均分歧度 ${ag.avgSpread} 分偏大，说明同一条隐患不同人给的松紧差别明显 —— <b>先把评分口径对齐，再谈模型优化</b>，否则指标本身不可信。`);
+    if (ag.coverage < 30) tips.push('双评覆盖率偏低，一致性结论置信度有限，建议提高双评比例。');
+  }
+  $('agTip').innerHTML = tips.join(' ');
+
+  // 两两一致率矩阵
+  if (revs.length >= 2) {
+    const find = (a, b) => {
+      const [x, y] = a <= b ? [a, b] : [b, a];
+      return (ag.pairs || []).find((q) => q.a === x && q.b === y) || null;
+    };
+    let html = '<div class="h"></div>' + revs.map((r) => `<div class="h">${esc(r)}</div>`).join('');
+    for (const a of revs) {
+      html += `<div class="rh">${esc(a)}</div>`;
+      for (const b of revs) {
+        if (a === b) { html += '<div class="c self">—</div>'; continue; }
+        const p = find(a, b);
+        if (!p) { html += '<div class="c na">—<small>无共同</small></div>'; continue; }
+        const col = p.rate >= 90 ? '#15803d' : p.rate >= 75 ? '#2563eb' : p.rate >= 60 ? '#d97706' : '#b91c1c';
+        const bg = p.rate >= 90 ? '#e6f5ec' : p.rate >= 75 ? '#e8effd' : p.rate >= 60 ? '#fdf0e7' : '#fdeaea';
+        html += `<div class="c" style="background:${bg};color:${col}">${p.rate}%<small>n=${p.n}</small></div>`;
+      }
+    }
+    const box = $('agMatrix');
+    box.innerHTML = html;
+    box.style.gridTemplateColumns = `auto repeat(${revs.length}, minmax(64px, 1fr))`;
+  } else {
+    const box = $('agMatrix');
+    box.innerHTML = '<div class="empty">还没有两条以上隐患被多人共同评过，无法计算一致性</div>';
+    box.style.gridTemplateColumns = '';
+  }
+
+  // 分歧最大的隐患
+  const sp = (ag.spreads || []).slice(0, 12);
+  const sh = ['记录编号', '部门', '隐患名称', '参评人', '各评审人综合分', '极差'];
+  $('tSpread').innerHTML = '<thead><tr>' + sh.map((h) => `<th>${h}</th>`).join('') + '</tr></thead><tbody>' +
+    (sp.map((r) => `<tr>
+      <td class="muted">${esc(r.recordId)}</td>
+      <td>${esc(r.dept || '—')}</td>
+      <td><span class="hno">${r.hazardNo}</span><b>${esc(r.name || '—')}</b></td>
+      <td class="cmt">${r.reviewers.map((x) => esc(x.reviewer)).join('、')}</td>
+      <td class="cmt"><div class="spreadrev">${r.reviewers.map((x) => `<div>${esc(x.reviewer)} <b>${x.overall == null ? '—' : x.overall}</b> <span class="pill ${x.verdict === 'issue' ? 'p-o' : 'p-g'}">${x.verdict === 'issue' ? '存疑' : '认可'}</span></div>`).join('')}</div></td>
+      <td class="num"><span class="pill ${r.spread >= 15 ? 'p-r' : r.spread >= 8 ? 'p-o' : 'p-b'}">${r.spread} 分</span></td>
+    </tr>`).join('') || '<tr><td colspan="6" class="empty">还没有 2 人以上评过的隐患</td></tr>') + '</tbody>';
+}
+
+/* ---------------- 交互 ---------------- */
+$('refresh').onclick = () => load();
+
+// 质量指标：阈值 / 漏检权重变化时，混淆矩阵 / 敏感性曲线 / 四象限 / 趋势线都要跟着重算
+$('qThr').onchange = (e) => {
+  Q.thr = Number(e.target.value) || 90;
+  renderQuality();
+  renderSens();
+  renderWeak();
+  renderTrend();
+};
+$('qWeight').onchange = (e) => {
+  Q.weight = e.target.value === 'sev' ? 'sev' : 'even';
+  renderRedline();
+  renderQuality();
+  renderSens();
+  renderWeak();
+  renderTrend();
+};
+
+// 评价人操作频率
+$('actUnit').onchange = (e) => { actF.unit = e.target.value; actHidden.clear(); renderAct(); };
+$('actMode').onchange = (e) => { actF.mode = e.target.value; renderAct(); };
+$('actMetric').onchange = (e) => { actF.metric = e.target.value; actHidden.clear(); renderAct(); };
+$('actReset').onclick = () => {
+  actF.unit = 'day'; actF.mode = 'daily'; actF.metric = 'count';
+  actHidden.clear();
+  $('actUnit').value = 'day'; $('actMode').value = 'daily'; $('actMetric').value = 'count';
+  renderAct();
+};
+$('actLegend').onclick = (e) => {
+  const chip = e.target.closest('[data-series]');
+  if (!chip) return;
+  const name = chip.dataset.series;
+  if (actHidden.has(name)) actHidden.delete(name); else actHidden.add(name);
+  renderAct();
+};
+$('qTrendUnit').onchange = (e) => { Q.unit = e.target.value; renderTrend(); };
+$('qTrendScope').onchange = (e) => { Q.scope = e.target.value; renderTrend(); };
+$('qTrendSmooth').onchange = (e) => { Q.smooth = e.target.value; renderTrend(); };
+
+// 频率图：筛选 / 拆线 / 指标变化时重画
+$('fqDept').onchange = (e) => { fqF.dept = e.target.value; renderFreq(); };
+$('fqInspector').onchange = (e) => { fqF.inspector = e.target.value; renderFreq(); };
+$('fqGroup').onchange = (e) => { fqF.group = e.target.value; fqHidden.clear(); renderFreq(); };
+$('fqMetric').onchange = (e) => { fqF.metric = e.target.value; renderFreq(); };
+$('fqReset').onclick = () => {
+  fqF.dept = 'all'; fqF.inspector = 'all'; fqF.group = 'none'; fqF.metric = 'records';
+  fqHidden.clear();
+  $('fqDept').value = 'all'; $('fqInspector').value = 'all';
+  $('fqGroup').value = 'none'; $('fqMetric').value = 'records';
+  renderFreq();
+};
+// 点图例隐藏 / 显示某条曲线
+$('freqLegend').onclick = (e) => {
+  const chip = e.target.closest('[data-series]');
+  if (!chip) return;
+  const name = chip.dataset.series;
+  if (fqHidden.has(name)) fqHidden.delete(name); else fqHidden.add(name);
+  renderFreq();
+};
+
+// 明细表筛选 / 排序变化时回到第 1 页
+$('hzDept').onchange = (e) => {
+  hzF.dept = e.target.value;
+  // 检查人下拉跟着部门收窄，避免出现「这个部门下根本没有这个检查人」的空结果
+  hzF.inspector = fillInspector($('hzInspector'), S.hazardRows, hzF.dept, hzF.inspector);
+  hzP.page = 1; renderHz();
+};
+$('hzInspector').onchange = (e) => { hzF.inspector = e.target.value; hzP.page = 1; renderHz(); };
+$('hzVerdict').onchange = (e) => { hzF.verdict = e.target.value; hzP.page = 1; renderHz(); };
+$('hzSev').onchange = (e) => { hzF.sev = e.target.value; hzP.page = 1; renderHz(); };
+$('hzSort').onchange = (e) => { hzF.sort = e.target.value; hzP.page = 1; renderHz(); };
+let hzT;
+$('hzKey').oninput = (e) => { clearTimeout(hzT); hzT = setTimeout(() => { hzF.kw = e.target.value; hzP.page = 1; renderHz(); }, 220); };
+$('hzReset').onclick = () => {
+  hzF.dept = 'all'; hzF.inspector = 'all'; hzF.verdict = 'all'; hzF.sev = 'all'; hzF.sort = 'score-asc'; hzF.kw = '';
+  $('hzDept').value = 'all'; $('hzVerdict').value = 'all'; $('hzSev').value = 'all';
+  $('hzSort').value = 'score-asc'; $('hzKey').value = '';
+  fillInspector($('hzInspector'), S.hazardRows, 'all', 'all');   // 部门归位 → 检查人列表也要放回全量
+  hzP.page = 1;
+  renderHz();
+};
+$('hzPager').onclick = (e) => {
+  const b = e.target.closest('button[data-page]');
+  if (!b || b.disabled) return;
+  hzP.page = Number(b.dataset.page);
+  renderHz();
+};
+// 依据对标诊断的「需人工复核条目」分页：内容是动态渲染的，所以委托在容器上
+$('basisLow').onclick = (e) => {
+  const b = e.target.closest('button[data-page]');
+  if (!b || b.disabled) return;
+  basisP.page = Number(b.dataset.page);
+  renderBasis();
+};
+
+$('nDept').onchange = (e) => {
+  nF.dept = e.target.value;
+  nF.inspector = fillInspector($('nInspector'), S.noneRows || [], nF.dept, nF.inspector);
+  nP.page = 1; renderNone();
+};
+$('nInspector').onchange = (e) => { nF.inspector = e.target.value; nP.page = 1; renderNone(); };
+$('nStatus').onchange = (e) => { nF.status = e.target.value; nP.page = 1; renderNone(); };
+$('nSev').onchange = (e) => { nF.sev = e.target.value; nP.page = 1; renderNone(); };
+let nT;
+$('nKey').oninput = (e) => { clearTimeout(nT); nT = setTimeout(() => { nF.kw = e.target.value; nP.page = 1; renderNone(); }, 220); };
+
+// 按时间汇总：按月 / 按周切换粒度（同一个表格换个分桶，不另开一张卡）
+$('mByMonth').onclick = () => { monthF.unit = 'month'; renderMonth(); };
+$('mByWeek').onclick = () => { monthF.unit = 'week'; renderMonth(); };
+$('nReset').onclick = () => {  nF.dept = 'all'; nF.inspector = 'all'; nF.status = 'all'; nF.sev = 'all'; nF.kw = '';
+  $('nDept').value = 'all'; $('nStatus').value = 'all'; $('nSev').value = 'all'; $('nKey').value = '';
+  fillInspector($('nInspector'), S.noneRows || [], 'all', 'all');
+  nP.page = 1;
+  renderNone();
+};
+$('nPager').onclick = (e) => {
+  const b = e.target.closest('button[data-page]');
+  if (!b || b.disabled) return;
+  nP.page = Number(b.dataset.page);
+  renderNone();
+};
+
+load();
+setInterval(load, 30000);
+</script>
+</body>
+</html>

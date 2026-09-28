@@ -1,0 +1,16 @@
+# 运行时日志与临时文件
+logs/
+*.log
+
+# 依赖与缓存
+node_modules/
+
+# 业务数据 —— 整体排除，仓库只放代码。
+# 里面是第三方客户场所的现场照片与检查人真名，不适合上传到境外云服务。
+# 克隆后需要自己准备 data/，见 SECURITY.md。
+data/
+
+# 操作系统垃圾文件
+.DS_Store
+Thumbs.db
+desktop.ini

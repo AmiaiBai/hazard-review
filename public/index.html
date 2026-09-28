@@ -1,0 +1,2229 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="theme-color" content="#1d4ed8">
+<title>隐患识别结果评分</title>
+<style>
+:root{
+  --bg:#eef1f6; --card:#ffffff; --text:#151b26; --sub:#697386; --line:#e3e8ef;
+  --primary:#1d4ed8; --primary-soft:#e8effd;
+  --green:#15803d; --green-soft:#e6f5ec;
+  --orange:#c2410c; --orange-soft:#fdf0e7;
+  --red:#b91c1c; --red-soft:#fdeaea;
+  --shadow:0 1px 2px rgba(16,24,40,.06),0 4px 14px rgba(16,24,40,.05);
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html{height:100%}
+body{
+  margin:0;height:100%;display:flex;flex-direction:column;overflow:hidden;
+  background:var(--bg); color:var(--text);
+  font:15px/1.55 -apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei","Helvetica Neue",Arial,sans-serif;
+  overscroll-behavior:none;
+}
+@supports (height:100dvh){ body{height:100dvh} }
+button{font-family:inherit;font-size:inherit;border:0;background:none;cursor:pointer;color:inherit}
+input,textarea{font-family:inherit;font-size:16px}
+
+/* ---------- 顶部栏 ---------- */
+header{
+  flex:none;z-index:30;background:rgba(255,255,255,.96);backdrop-filter:blur(12px);
+  border-bottom:1px solid var(--line);padding:calc(env(safe-area-inset-top) + 9px) 14px 9px;
+}
+.hrow{display:flex;align-items:center;gap:9px}
+.htitle{font-size:15.5px;font-weight:700;letter-spacing:.2px;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.hbtn{
+  display:flex;align-items:center;gap:5px;padding:6px 10px;border-radius:9px;
+  background:#f1f4f9;color:#3b4657;font-size:12.5px;font-weight:600;border:1px solid var(--line);
+  white-space:nowrap;max-width:152px;
+}
+.hbtn span{overflow:hidden;text-overflow:ellipsis}
+.hbtn.on{background:var(--primary-soft);color:var(--primary);border-color:#c3d6fb}
+
+.progwrap{margin-top:9px}
+.progtxt{display:flex;justify-content:space-between;font-size:11.5px;color:var(--sub);margin-bottom:5px;gap:10px}
+.progtxt b{color:var(--text);font-weight:700}
+.progtxt .todo b{color:var(--orange)}
+.bar{height:6px;border-radius:6px;background:#e4e9f2;overflow:hidden}
+.bar>i{display:block;height:100%;width:0;border-radius:6px;background:linear-gradient(90deg,#2563eb,#16a34a);transition:width .35s ease}
+.skipnote{
+  display:flex;align-items:center;justify-content:center;gap:5px;width:100%;margin-top:6px;
+  padding:5px 8px;border-radius:8px;background:#fff7ed;border:1px solid #fed7aa;color:#b45309;
+  font-size:11.5px;font-weight:600;
+}
+.skipnote[hidden]{display:none}
+.skipnote b{font-weight:800}
+.rangenote{
+  display:flex;align-items:center;justify-content:center;gap:5px;width:100%;margin-top:6px;
+  padding:5px 8px;border-radius:8px;background:#f4f7fc;border:1px solid #e0e8f4;color:#4b5a72;
+  font-size:11.5px;font-weight:600;
+}
+.rangenote[hidden]{display:none}
+.rangenote b{color:var(--primary);font-weight:800}
+.searchnote{
+  display:flex;align-items:center;justify-content:center;gap:5px;width:100%;margin-top:6px;
+  padding:5px 8px;border-radius:8px;background:#eef6ff;border:1px solid #c7ddf7;color:#1d4ed8;
+  font-size:11.5px;font-weight:600;
+}
+.searchnote[hidden]{display:none}
+.searchnote b{font-weight:800}
+
+.hintbar{
+  flex:none;display:flex;align-items:center;justify-content:space-between;gap:10px;
+  font-size:11.5px;color:var(--sub);padding:6px 12px 0;flex-wrap:wrap;
+}
+.hintbar b{font-weight:700}
+.hintbar .kl{color:var(--green)}
+.hintbar .kr{color:var(--orange)}
+.hintbar .hintacts{display:flex;gap:7px;flex:none}
+.hintbar .hintacts button{
+  padding:4px 10px;border-radius:8px;background:#fff;border:1px solid var(--line);
+  font-size:11.5px;font-weight:700;color:#3b4657;
+}
+
+/* 部门 / 检查人 / 填写人员 = 管理员信息：未解锁时整块不显示
+   （服务端对非管理员本来就不下发，这里再按身份藏掉，免得留一个空标签让人以为数据缺了） */
+body:not(.admin) .adminonly{display:none !important}
+
+/* ---------- 舞台（单卡片） ---------- */
+main{flex:1;position:relative;overflow:hidden;min-height:0}
+
+.swipe{
+  position:absolute;inset:6px 12px;border-radius:14px;overflow:hidden;
+  background:var(--card);border:1px solid var(--line);box-shadow:var(--shadow);
+  touch-action:pan-y;
+}
+.swipe[hidden]{display:none}
+.bg{
+  position:absolute;inset:0;display:flex;align-items:center;gap:6px;
+  color:#fff;font-weight:800;font-size:16px;letter-spacing:1px;opacity:0;pointer-events:none;
+}
+.bg svg{width:22px;height:22px}
+.bg-pass{background:linear-gradient(90deg,#0f7a39,#18a052);justify-content:flex-end;padding-right:24px}
+.bg-score{background:linear-gradient(90deg,#c9781a,#e8a33d);justify-content:flex-start;padding-left:24px}
+
+.card{
+  position:relative;z-index:1;height:100%;overflow-y:auto;overflow-x:hidden;
+  -webkit-overflow-scrolling:touch;background:var(--card);padding:14px 14px 20px;
+  user-select:none;-webkit-user-select:none;will-change:transform;
+}
+.card.anim{transition:transform .26s cubic-bezier(.22,.8,.3,1),opacity .26s ease}
+
+.chead{display:flex;align-items:flex-start;gap:9px}
+.cno{
+  flex:none;min-width:24px;height:24px;padding:0 6px;border-radius:7px;background:#eef2f8;color:#4a566b;
+  font-size:12px;font-weight:800;display:flex;align-items:center;justify-content:center;margin-top:1px;
+}
+.cname{flex:1;font-size:16px;font-weight:700;line-height:1.42;word-break:break-word}
+.badge{flex:none;font-size:11px;font-weight:700;padding:3px 8px;border-radius:6px;white-space:nowrap}
+.b-none{background:#f1f3f7;color:#8b95a6}
+.b-pass{background:var(--green-soft);color:var(--green)}
+.b-issue{background:var(--orange-soft);color:var(--orange)}
+
+.cmeta{display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:11.5px;color:var(--sub);margin-top:7px}
+.recid{font-weight:700;color:#3d4657}
+.tag{display:inline-block;padding:1px 7px;border-radius:5px;background:#eef2f8;color:#526078;font-size:11px;font-weight:600}
+.tag-b{background:#e2ebfb;color:#1d4ed8}
+
+.picwrap{margin-top:12px}
+.pic{
+  display:block;width:100%;max-height:44vh;object-fit:contain;background:#e8ecf3;
+  border-radius:11px;cursor:zoom-in;
+}
+.piccap{font-size:11px;color:var(--sub);text-align:center;margin-top:5px}
+
+.csec{margin-top:12px;padding-top:12px;border-top:1px dashed #eef1f6}
+.csec p{margin:0;font-size:14px;line-height:1.68;color:#333d4d;word-break:break-word}
+.csec.advice p{color:#1f4d33}
+.slab{display:inline-block;font-size:11px;font-weight:800;letter-spacing:.5px;color:#8b95a6;margin-bottom:5px}
+.basisbox{background:#f7f9fd;border:1px solid #e7edf7;border-radius:9px;padding:9px 10px;font-size:13px;line-height:1.62;color:#44506a}
+.sno{display:inline-block;background:#e2ebfb;color:#1d4ed8;font-weight:700;border-radius:5px;padding:1px 6px;margin-right:5px;font-size:11.5px}
+.nostd{display:inline-block;background:var(--red-soft);color:var(--red);font-weight:700;border-radius:5px;padding:1px 6px;font-size:11.5px}
+.ctip{margin-top:12px;background:#f8fafd;border:1px solid #eef2f8;border-radius:9px;padding:10px;font-size:12.5px;color:#5a6474;line-height:1.62}
+.myscore{display:inline-block;margin-top:12px;font-weight:800;color:var(--primary);font-size:13.5px}
+
+/* ---------- 完成 / 空态面板 ---------- */
+.panel{
+  position:absolute;inset:6px 12px;background:#fff;border:1px solid var(--line);border-radius:14px;
+  box-shadow:var(--shadow);display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:11px;padding:30px 22px;text-align:center;overflow-y:auto;
+}
+.panel[hidden]{display:none}
+.panel.wide{justify-content:flex-start;padding:18px 16px 24px;gap:9px}
+.panel .ic{
+  width:58px;height:58px;border-radius:50%;background:var(--green-soft);color:var(--green);
+  display:flex;align-items:center;justify-content:center;font-size:30px;font-weight:800;flex:none;
+}
+.panel h2{margin:0;font-size:18px;letter-spacing:.3px}
+.panel p{margin:0;font-size:13px;color:var(--sub);line-height:1.7}
+.panel .acts{display:flex;gap:9px;margin-top:8px;flex-wrap:wrap;justify-content:center}
+.panel .acts button{
+  padding:10px 16px;border-radius:10px;font-size:13.5px;font-weight:700;
+  border:1px solid var(--line);background:#f1f4f9;color:#3b4657;
+}
+.panel .acts button.p{background:var(--primary);color:#fff;border-color:var(--primary)}
+
+/* 筛选进度总览：圆点阵列 + 结果预览 */
+.ovwrap{width:100%;text-align:left}
+.ovhead{display:flex;align-items:baseline;justify-content:space-between;gap:8px;margin-bottom:2px}
+.ovhead h2{font-size:17px}
+.ovscope{font-size:11.5px;color:var(--sub);font-weight:600}
+.ovsub{font-size:12px;color:var(--sub);line-height:1.6}
+.dots{
+  display:grid;grid-template-columns:repeat(auto-fill,minmax(15px,1fr));gap:4px;
+  width:100%;max-height:186px;overflow-y:auto;padding:9px;margin-top:8px;
+  background:#f8fafd;border:1px solid #eef2f8;border-radius:10px;
+}
+.dot{
+  width:100%;aspect-ratio:1;border-radius:4px;border:none;padding:0;
+  background:#dbe2ec;cursor:pointer;
+}
+.dot.d-pass{background:#22a35a}
+.dot.d-issue{background:#e8963a}
+.dot.d-miss{background:#7c5cd6}
+.dot.d-major{background:#e8963a;box-shadow:inset 0 0 0 2px #7c3d00}
+.dot.d-crit{background:#b91c1c;box-shadow:inset 0 0 0 2px #5c0d0d}
+.dot.d-cur{outline:2px solid #2563eb;outline-offset:1px}
+.dotlegend{display:flex;gap:12px;flex-wrap:wrap;font-size:11.5px;color:var(--sub);margin-top:8px}
+.dotlegend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:4px;vertical-align:-1px}
+.ovstats{display:grid;grid-template-columns:repeat(auto-fit,minmax(88px,1fr));gap:7px;width:100%;margin-top:10px}
+.ovstat{background:#f8fafd;border:1px solid #eef2f8;border-radius:10px;padding:9px 10px}
+.ovstat .k{font-size:11px;color:var(--sub);font-weight:600}
+.ovstat .v{font-size:17px;font-weight:800;color:var(--text);margin-top:2px}
+.ovstat .v small{font-size:11px;font-weight:600;color:var(--sub);margin-left:2px}
+.ovdims{width:100%;margin-top:10px}
+.ovdimwrap{display:grid;grid-template-columns:minmax(0,1fr);gap:8px}
+@media (min-width:520px){.ovdimwrap{grid-template-columns:minmax(0,1fr) 190px;gap:14px;align-items:center}}
+.ovradar svg{width:100%;max-width:210px;height:auto;display:block;margin:0 auto}
+.ovdim{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:4px 10px;align-items:center;margin-bottom:7px}
+.ovdim .lab{font-size:12px;color:#3b4657;font-weight:600}
+.ovdim .num{font-size:12.5px;font-weight:800;color:var(--primary)}
+.ovdim .track{grid-column:1/-1;height:6px;border-radius:6px;background:#e8edf5;overflow:hidden}
+.ovdim .track>i{display:block;height:100%;border-radius:6px;background:linear-gradient(90deg,#2563eb,#16a34a)}
+.ovmiss{
+  width:100%;margin-top:10px;padding:9px 11px;border-radius:10px;font-size:12.5px;line-height:1.6;
+  background:#fff7ed;border:1px solid #fed7aa;color:#9a3412;text-align:left;
+}
+.ovmiss.ok{background:#f0fdf4;border-color:#bbf7d0;color:#15803d}
+.ovmiss button{margin-top:6px;padding:5px 11px;border-radius:8px;border:1px solid currentColor;background:#fff;font-size:12px;font-weight:700;color:inherit}
+/* 漏检复核（召回）口径提示 */
+.ovnone{
+  width:100%;margin-top:10px;padding:9px 11px;border-radius:10px;font-size:12.5px;line-height:1.6;
+  background:#f5f3ff;border:1px solid #ddd6fe;color:#5b21b6;text-align:left;
+}
+.ovnone b{font-weight:800}
+
+/* ---------- 底部操作条 ---------- */
+.ops{
+  flex:none;display:flex;gap:8px;align-items:stretch;
+  padding:9px 12px calc(env(safe-area-inset-bottom) + 10px);
+  background:rgba(255,255,255,.97);backdrop-filter:blur(10px);border-top:1px solid var(--line);
+}
+.ops[hidden]{display:none}
+.ob{padding:12px 8px;border-radius:11px;font-size:15px;font-weight:700;text-align:center;border:1px solid var(--line);background:#f1f4f9;color:#3b4657}
+.ob:active{opacity:.8}
+.ob-nav{flex:none;width:46px;font-size:19px;line-height:1;padding:10px 0}
+.ob-score{flex:1;background:#fdf6ef;color:var(--orange);border-color:#f0d5b6}
+.ob-pass{flex:1;background:var(--green);color:#fff;border-color:var(--green)}
+
+/* ---------- 抽屉 ---------- */
+.mask{position:fixed;inset:0;background:rgba(15,20,30,.45);z-index:40;opacity:0;pointer-events:none;transition:opacity .24s ease}
+.mask.show{opacity:1;pointer-events:auto}
+.sheet{
+  position:fixed;left:0;right:0;bottom:0;top:0;z-index:50;background:var(--bg);
+  transform:translateY(100%);transition:transform .28s cubic-bezier(.22,.8,.3,1);
+  display:flex;flex-direction:column;
+}
+.sheet.show{transform:translateY(0)}
+.shead{
+  display:flex;align-items:center;gap:10px;padding:calc(env(safe-area-inset-top) + 10px) 14px 10px;
+  background:#fff;border-bottom:1px solid var(--line);flex:none;
+}
+.shead .st{flex:1;font-size:15.5px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sclose{padding:7px 11px;border-radius:9px;background:#f1f4f9;font-size:13px;font-weight:600;color:#3b4657;flex:none}
+.sbody{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:12px 12px 130px}
+.sfoot{
+  position:absolute;left:0;right:0;bottom:0;padding:10px 12px calc(env(safe-area-inset-bottom) + 10px);
+  background:rgba(255,255,255,.97);backdrop-filter:blur(10px);border-top:1px solid var(--line);display:flex;gap:9px;
+}
+.btn{flex:1;padding:12px;border-radius:11px;font-size:15px;font-weight:700;text-align:center}
+.btn-p{background:var(--primary);color:#fff}
+.btn-g{background:var(--green-soft);color:var(--green);border:1px solid #bfe3cd}
+.btn:active{opacity:.82}
+
+.blk{background:#fff;border:1px solid var(--line);border-radius:13px;padding:13px;margin-bottom:11px;box-shadow:var(--shadow)}
+.blk h4{margin:0 0 7px;font-size:12px;font-weight:800;color:var(--sub);letter-spacing:.6px}
+.blk p{margin:0;font-size:14px;line-height:1.65;color:#2b3442;word-break:break-word}
+.blk .basis{font-size:13px;line-height:1.6;color:#44506a;background:#f7f9fd;border-radius:9px;padding:10px;border:1px solid #e7edf7}
+/* 依据全文没到位时的占位 —— 明确写「加载中 / 失败」，绝不显示带省略号的截断版，
+   否则工程师会把半句法规当成完整依据，据此判「依据适用性」 */
+.basisloading{color:#9aa4b4}
+.basisretry{color:var(--primary);text-decoration:underline;text-underline-offset:2px;cursor:pointer}
+
+.pick{display:flex;gap:9px;margin-top:4px}
+.pick button{
+  flex:1;padding:13px 8px;border-radius:11px;border:1.5px solid var(--line);background:#fafbfd;
+  font-size:14px;font-weight:700;color:#4a566b;
+}
+.pick button.on[data-v="pass"]{background:var(--green-soft);border-color:#9ed4b4;color:var(--green)}
+.pick button.on[data-v="issue"]{background:var(--orange-soft);border-color:#f0c39a;color:var(--orange)}
+.pick .sub{display:block;font-size:11px;font-weight:600;opacity:.72;margin-top:3px}
+
+/* 漏检严重度：重大隐患漏检是硬红线，配色单独拉开 */
+.pick.sev button{padding:10px 6px;font-size:13px}
+.pick.sev button.on[data-v="general"]{background:#eef2f7;border-color:#c9d3e0;color:#4a566b}
+.pick.sev button.on[data-v="major"]{background:var(--orange-soft);border-color:#f0c39a;color:var(--orange)}
+.pick.sev button.on[data-v="critical"]{background:var(--red-soft);border-color:#f3bcbc;color:var(--red)}
+
+/* 已识别隐患的严重度：4 档（含「未标注」），2×2 排布 —— 手机上排成一行会挤成豆腐块 */
+.pick.sev4{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.pick.sev4 button.on{background:#eef2f7;border-color:#c9d3e0;color:#4a566b}
+.pick.sev4 button.on[data-v="major"]{background:var(--orange-soft);border-color:#f0c39a;color:var(--orange)}
+.pick.sev4 button.on[data-v="critical"]{background:var(--red-soft);border-color:#f3bcbc;color:var(--red)}
+.sevwarn{
+  font-size:12px;line-height:1.6;color:var(--red);background:var(--red-soft);
+  border:1px solid #f3bcbc;border-radius:9px;padding:9px 11px;margin-top:9px;
+}
+/* 与 .sevwarn 对应：重大隐患被正确识别，是正面信号 */
+.sevinfo{
+  font-size:12px;line-height:1.6;color:var(--green);background:var(--green-soft);
+  border:1px solid #9ed4b4;border-radius:9px;padding:9px 11px;margin-top:9px;
+}
+.badge.b-crit{background:var(--red-soft);color:var(--red)}
+.badge.b-major{background:var(--orange-soft);color:var(--orange)}
+/* 「继续处理」= 还有待办，用绿色催办 */
+.panel .acts button.g{background:var(--green);color:#fff;border-color:var(--green)}
+
+/* ---------- 滑块 ---------- */
+.slider{margin:15px 0 4px}
+.slider:first-child{margin-top:4px}
+.slhead{display:flex;align-items:baseline;gap:8px}
+.slhead .lab{font-size:14px;font-weight:700;flex:1}
+.slhead .val{font-size:19px;font-weight:800;font-variant-numeric:tabular-nums;min-width:38px;text-align:right}
+.slhint{font-size:11.5px;color:var(--sub);margin-top:2px}
+.slword{font-size:12px;font-weight:700;margin-left:6px}
+input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:34px;background:transparent;margin:4px 0 0}
+input[type=range]::-webkit-slider-runnable-track{height:8px;border-radius:8px;background:linear-gradient(90deg,var(--fillcolor) 0 var(--pct),#e4e9f2 var(--pct) 100%)}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:28px;height:28px;border-radius:50%;background:#fff;border:3px solid var(--fillcolor);margin-top:-10px;box-shadow:0 1px 6px rgba(16,24,40,.28)}
+input[type=range]::-moz-range-track{height:8px;border-radius:8px;background:#e4e9f2}
+input[type=range]::-moz-range-progress{height:8px;border-radius:8px;background:var(--fillcolor)}
+input[type=range]::-moz-range-thumb{width:24px;height:24px;border-radius:50%;background:#fff;border:3px solid var(--fillcolor)}
+.slscale{display:flex;justify-content:space-between;font-size:11px;color:#9aa4b4;margin-top:-2px}
+
+textarea{width:100%;border:1px solid var(--line);border-radius:10px;padding:10px;resize:vertical;min-height:64px;line-height:1.55;background:#fcfdff;color:var(--text)}
+textarea:focus{outline:none;border-color:#a9c2f5;background:#fff}
+
+/* ---------- 引导页 ---------- */
+.gate{
+  position:fixed;inset:0;z-index:60;background:linear-gradient(170deg,#1e3a8a,#1d4ed8 55%,#2563eb);
+  display:flex;flex-direction:column;justify-content:center;padding:28px 22px calc(env(safe-area-inset-bottom) + 28px);color:#fff;
+  overflow-y:auto;
+}
+.gate h1{font-size:24px;margin:0 0 6px;letter-spacing:.5px}
+.gate .sub{font-size:13.5px;opacity:.82;margin-bottom:24px;line-height:1.6}
+.gate label{display:block;font-size:12.5px;font-weight:700;opacity:.86;margin:0 0 6px}
+.gate input{width:100%;padding:13px;border-radius:11px;border:1px solid rgba(255,255,255,.35);background:rgba(255,255,255,.14);color:#fff;font-size:16px;margin-bottom:15px}
+.gate input::placeholder{color:rgba(255,255,255,.55)}
+.gate .go{width:100%;padding:15px;border-radius:12px;background:#fff;color:#1d4ed8;font-size:16.5px;font-weight:800;box-shadow:0 6px 20px rgba(0,0,0,.2)}
+.gate .tip{font-size:11.5px;opacity:.78;margin-top:14px;line-height:1.7}
+.gate .deps{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px}
+.gate .deps button{padding:9px 14px;border-radius:9px;background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.3);color:#fff;font-size:13.5px;font-weight:600}
+.gate .deps button.on{background:#fff;color:#1d4ed8;border-color:#fff}
+
+/* ---------- 筛选面板 ---------- */
+.filters{
+  position:fixed;left:0;right:0;top:0;z-index:50;background:#fff;
+  padding:calc(env(safe-area-inset-top) + 12px) 14px 14px;border-radius:0 0 18px 18px;
+  transform:translateY(-105%);transition:transform .26s cubic-bezier(.22,.8,.3,1);
+  box-shadow:0 10px 30px rgba(16,24,40,.14);
+  max-height:92vh;overflow-y:auto;
+}
+.filters.show{transform:translateY(0)}
+.filters h4{margin:0 0 9px;font-size:12px;color:var(--sub);font-weight:800;letter-spacing:.6px}
+.filters h4 small{display:block;font-size:11.5px;color:#9aa4b4;font-weight:500;letter-spacing:0;margin-top:3px}
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px}
+.chips button{padding:8px 13px;border-radius:9px;background:#f1f4f9;border:1px solid var(--line);font-size:13px;font-weight:600;color:#4a566b}
+.chips button.on{background:var(--primary);border-color:var(--primary);color:#fff}
+/* 时间范围：起止日期选择 */
+.range{display:flex;align-items:center;gap:9px}
+.range input[type=date]{
+  flex:1;min-width:0;width:100%;padding:10px 11px;border-radius:10px;
+  border:1px solid var(--line);background:#fff;color:var(--text);
+  font-size:13.5px;font-weight:600;font-family:inherit;
+  -webkit-appearance:none;appearance:none;
+}
+.range input[type=date]:focus{outline:none;border-color:var(--primary);background:#f8fbff}
+.range>span{flex:none;font-size:12.5px;color:var(--sub);font-weight:600}
+.rangehint{font-size:11.5px;color:var(--sub);line-height:1.65;margin-top:9px}
+.rangehint b{color:var(--text);font-weight:800}
+.rangehint em{font-style:normal;color:var(--primary);font-weight:700}
+.rangebtns{display:flex;gap:8px;margin-top:9px;margin-bottom:16px}
+.rangebtns button{
+  flex:1;padding:9px 4px;border-radius:9px;border:1px solid var(--line);background:#f8fafd;
+  font-size:12.5px;font-weight:700;color:#3b4657;font-family:inherit;
+}
+.rangebtns button.on{background:var(--primary-soft);color:var(--primary);border-color:#c3d6fb}
+.filters input[type=search]{width:100%;padding:11px;border-radius:10px;border:1px solid var(--line);background:#f8fafd;color:var(--text);margin-bottom:14px}
+.switch{display:flex;align-items:center;gap:10px;background:#f8fafd;border:1px solid var(--line);border-radius:11px;padding:11px 13px;margin-bottom:16px}
+.switch .st{flex:1;font-size:13.5px;font-weight:600;color:#3b4657;line-height:1.4}
+.switch .st small{display:block;font-size:11.5px;color:var(--sub);font-weight:500;margin-top:2px}
+.sw{width:48px;height:28px;border-radius:16px;background:#d7dee9;position:relative;transition:background .2s;flex:none}
+.sw::after{content:'';position:absolute;top:3px;left:3px;width:22px;height:22px;border-radius:50%;background:#fff;box-shadow:0 1px 4px rgba(0,0,0,.2);transition:transform .2s}
+.sw.on{background:var(--primary)}
+.sw.on::after{transform:translateX(20px)}
+.frow{display:flex;gap:9px}
+.frow .btn{flex:1;padding:13px;border-radius:11px;font-size:15px;font-weight:700}
+
+.toast{
+  position:fixed;left:50%;bottom:104px;transform:translate(-50%,14px);z-index:70;
+  background:rgba(21,27,38,.95);color:#fff;padding:11px 14px;border-radius:11px;font-size:13.5px;font-weight:600;
+  opacity:0;pointer-events:none;transition:all .22s ease;max-width:90vw;text-align:center;
+  display:flex;align-items:center;gap:12px;
+}
+.toast.show{opacity:1;transform:translate(-50%,0);pointer-events:auto}
+.toast button{background:rgba(255,255,255,.2);color:#fff;padding:5px 11px;border-radius:8px;font-size:13px;font-weight:700}
+
+.viewer{position:fixed;inset:0;z-index:80;background:rgba(0,0,0,.94);display:none;align-items:center;justify-content:center}
+.viewer.show{display:flex}
+.viewer img{max-width:100%;max-height:100%;object-fit:contain}
+.viewer .x{position:absolute;top:calc(env(safe-area-inset-top) + 12px);right:14px;color:#fff;font-size:14px;font-weight:700;background:rgba(255,255,255,.16);padding:8px 14px;border-radius:9px}
+</style>
+</head>
+<body>
+
+<!-- 引导页 -->
+<div class="gate" id="gate" style="display:none">
+  <h1>隐患识别结果评分</h1>
+  <div class="sub">对 AI 识别出的隐患逐条打分，选出你认可的结果<br>评分自动保存，随时中断、随时继续</div>
+  <label>你的姓名</label>
+  <input id="gName" placeholder="请输入真实姓名，用于统计" autocomplete="off" list="nameList">
+  <datalist id="nameList"></datalist>
+  <button class="go" id="gGo">开始评分</button>
+  <div class="tip">
+    一次只看一条隐患：<br>
+    <b>左滑</b> = 认可，自动翻到下一条<br>
+    <b>右滑</b> 或点底部「评分」= 逐项打分、写建议<br>
+    点现场图可放大查看<br>
+    想只看某一类隐患，进去后用顶部「<b>搜索隐患</b>」
+  </div>
+</div>
+
+<header>
+  <div class="hrow">
+    <div class="htitle">隐患识别结果评分</div>
+    <button class="hbtn" id="btnFilter">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M3 6h18M7 12h10M11 18h2"/></svg>
+      <span id="filterLabel">全部</span>
+    </button>
+    <button class="hbtn" id="btnMe"></button>
+  </div>
+  <div class="progwrap">
+    <div class="progtxt">
+      <span>第 <b id="pIdx">0</b> / <span id="pAll">0</span> 条</span>
+      <span>已评 <b id="pDone">0</b> · <span class="todo">待评 <b id="pTodo">0</b></span> · <span id="pPct">0%</span></span>
+    </div>
+    <div class="bar"><i id="pBar"></i></div>
+    <button class="rangenote" id="pRange" hidden></button>
+    <button class="searchnote" id="pSearch" hidden></button>
+    <button class="skipnote" id="pSkip" hidden></button>
+  </div>
+</header>
+
+<div class="hintbar">
+  <span><b class="kl">左滑认可</b> · <b class="kr">右滑评分</b></span>
+  <span class="hintacts">
+    <button id="btnSearch">搜索隐患</button>
+    <button id="btnOverview">筛选进度总览</button>
+    <button id="btnLock">🔒 管理员</button>
+    <button id="btnAdmin">统计</button>
+  </span>
+</div>
+
+<main id="stage">
+  <div class="swipe" id="swipe" hidden>
+    <div class="bg bg-pass" id="bgPass">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>认可
+    </div>
+    <div class="bg bg-score" id="bgScore">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M12 20h9M16.5 3.5a2.12 2.12 0 013 3L7 19l-4 1 1-4z"/></svg>评分
+    </div>
+    <div class="card" id="card"></div>
+  </div>
+  <div class="panel" id="panel" hidden></div>
+</main>
+
+<div class="ops" id="ops">
+  <button class="ob ob-nav" id="btnPrev" title="上一条">‹</button>
+  <button class="ob ob-score" id="btnScore">评分</button>
+  <button class="ob ob-pass" id="btnPass">认可 ✓</button>
+  <button class="ob ob-nav" id="btnNext" title="跳过，下一条">›</button>
+</div>
+
+<!-- 筛选面板 -->
+<div class="filters" id="filters">
+  <h4>时间范围<small>按识别时间筛选，默认全部时间，可自行调整</small></h4>
+  <div class="range">
+    <input type="date" id="fFrom">
+    <span>至</span>
+    <input type="date" id="fTo">
+  </div>
+  <div class="rangebtns" id="fQuick">
+    <button data-r="all">全部时间</button>
+    <button data-r="week">最近一周</button>
+    <button data-r="month">最近一月</button>
+  </div>
+  <div class="rangehint" id="fRangeHint"></div>
+  <h4>评分状态</h4>
+  <div class="chips" id="fStatus">
+    <button data-v="all">全部</button>
+    <button data-v="todo">未评</button>
+    <button data-v="done">已评</button>
+    <button data-v="issue">有存疑</button>
+    <button data-v="miss">疑似漏检</button>
+  </div>
+  <div class="switch" id="swWrap">
+    <div class="st">含「AI 未识别到隐患」的记录<small>打开后可复核是否有漏检</small></div>
+    <div class="sw" id="swNone"></div>
+  </div>
+  <input type="search" id="fKey" placeholder="搜索隐患名称 / 记录编号">
+  <div class="frow">
+    <button class="btn btn-o" id="fClose" style="background:#f1f4f9;color:#3b4657;border:1px solid var(--line)">取消</button>
+    <button class="btn btn-p" id="fApply">应用筛选</button>
+  </div>
+</div>
+
+<!-- 隐患搜索（顶部「搜索隐患」入口） -->
+<div class="filters" id="searchbox">
+  <h4>搜索隐患<small>按隐患名称、描述、法规依据、记录编号搜索。搜出来的一批可以逐条评分，也可以在「筛选进度总览」里填一份统一处理意见</small></h4>
+  <input type="search" id="sKey" placeholder="如：电气、消防、配电箱、电动车" autocomplete="off">
+  <div class="chips" id="sHot"></div>
+  <div class="rangehint" id="sHint">搜索会自动切到「全部时间」，避免漏掉往期同类隐患</div>
+  <div class="frow">
+    <button class="btn btn-o" id="sClose" style="background:#f1f4f9;color:#3b4657;border:1px solid var(--line)">取消</button>
+    <button class="btn btn-p" id="sGo">搜索</button>
+  </div>
+</div>
+
+<!-- 管理员解锁：部门 / 检查人 / 填写人员都是管理员信息，解锁后卡片上才会显示 -->
+<div class="filters" id="lockbox">
+  <h4>管理员模式<small>部门、检查人、填写人员信息仅管理员可见。输入密码解锁后，卡片上会显示所属部门与检查人。</small></h4>
+  <input type="password" id="lockPw" placeholder="管理员密码" autocomplete="current-password">
+  <div class="rangehint lockerr" id="lockErr" hidden></div>
+  <div class="frow">
+    <button class="btn btn-o" id="lockClose" style="background:#f1f4f9;color:#3b4657;border:1px solid var(--line)">取消</button>
+    <button class="btn btn-p" id="lockGo">解锁</button>
+  </div>
+</div>
+
+<!-- 详情 / 评分抽屉 -->
+<div class="sheet" id="sheet">
+  <div class="shead">
+    <div class="st" id="shTitle">隐患详情</div>
+    <button class="sclose" id="shClose">关闭</button>
+  </div>
+  <div class="sbody" id="shBody"></div>
+  <div class="sfoot" id="shFoot"></div>
+</div>
+
+<div class="mask" id="mask"></div>
+
+<!-- 筛选处理意见 -->
+<div class="sheet" id="sheet2">
+  <div class="shead">
+    <div class="st" id="sh2Title">筛选处理意见</div>
+    <button class="sclose" id="sh2Close">关闭</button>
+  </div>
+  <div class="sbody" style="padding-bottom:20px">
+    <div class="blk">
+      <h4 id="gScopeLabel">当前范围</h4>
+      <p style="font-size:13px;color:#5a6474;margin-bottom:9px" id="gScopeDesc"></p>
+      <textarea id="generalBox" placeholder="例如：这段时间整体识别准确，但法规依据引用部分条款号有误；希望增加对未识别到隐患场景的漏检复核……" style="min-height:180px"></textarea>
+    </div>
+    <div class="blk">
+      <h4>说明</h4>
+      <p style="font-size:13px;color:#5a6474">这条意见只针对当前筛选出的部门 / 时间范围，会与逐条评分一起进入统计表。换一个范围可以另写一条。</p>
+    </div>
+  </div>
+  <div class="sfoot"><button class="btn btn-p" id="gSave">保存本次筛选意见</button></div>
+</div>
+
+<div class="toast" id="toast"></div>
+<div class="viewer" id="viewer"><img id="viewerImg" alt=""><button class="x" id="viewerX">关闭</button></div>
+
+<script>
+'use strict';
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+const S = {
+  records: [], items: [], mine: new Map(),
+  reviewer: localStorage.getItem('hr_reviewer') || '',
+  filterStatus: 'all',
+  filterFrom: '', filterTo: '',          // 识别时间区间（YYYY-MM-DD），默认「记录首日 ~ 今日」
+  keyword: '', showNone: false,          // keyword：隐患搜索关键词，非空时牌堆只留命中的那批
+  dims: [], init: 90, depts: [], span: { first: '', last: '' }, meta: null, admin: false,
+  filtered: [], idx: 0,
+  basisCache: new Map(),      // key -> 法规依据全文（列表里只带了开头）
+  generals: {},               // 筛选范围 -> 已填写的处理意见
+};
+
+const keyOf = (rid, no) => rid + '#' + no;
+
+/* ---------------- 时间范围（按识别时间） ---------------- */
+/** 记录时间形如 2026-09-17 14:23 → 取 "2026-09-17" */
+const dayOf = (t) => String(t || '').slice(0, 10);
+
+function isoDay(d) {
+  const p = (n) => String(n).padStart(2, '0');
+  return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate());
+}
+function shiftDay(day, delta) {
+  const d = new Date(day + 'T00:00:00');       // 本地零点，避免 UTC 偏移
+  d.setDate(d.getDate() + delta);
+  return isoDay(d);
+}
+
+/** 默认范围：记录产生第一天 ~ 今日（两头都夹在可选范围内，数据跨度为 0 天也不会翻车） */
+function defaultRange() {
+  return [minDay() || maxDay(), maxDay()];
+}
+
+/** 当前生效的时间区间；返回 null 表示不限 */
+function activeRange() {
+  const f = S.filterFrom || '', t = S.filterTo || '';
+  if (!f && !t) return null;
+  return [f || '0000-01-01', t || '9999-12-31'];
+}
+
+/** 当前范围是否已覆盖全部数据 */
+function isAllTime() {
+  const r = activeRange();
+  if (!r) return true;
+  return (!S.span.first || r[0] <= S.span.first) && (!S.span.last || r[1] >= S.span.last);
+}
+
+/** 记录是否落在给定区间内 */
+function inRange(day, r) {
+  if (!r) return true;
+  return !!day && day >= r[0] && day <= r[1];
+}
+
+/** 简短范围文本（同年只显示 MM-DD~MM-DD） */
+function shortRange(r) {
+  if (!r) return '';
+  const s = (d, other) => (d.slice(0, 4) === other.slice(0, 4) ? d.slice(5) : d);
+  return s(r[0], r[1]) + '~' + s(r[1], r[0]);
+}
+
+/* 日期可选范围：最早到数据首日，最晚到「今天」—— 两头都夹住，手动输入越界也会被拉回来 */
+function minDay() { return S.span.first || ''; }
+function maxDay() { return isoDay(new Date()); }
+function clampDay(v) {
+  if (!v) return '';
+  let d = v;
+  const lo = minDay(), hi = maxDay();
+  if (lo && d < lo) d = lo;
+  if (hi && d > hi) d = hi;
+  return d;
+}
+function applyDateLimits() {
+  const lo = minDay(), hi = maxDay();
+  for (const id of ['fFrom', 'fTo']) {
+    const el = $(id);
+    if (lo) el.min = lo;
+    if (hi) el.max = hi;
+  }
+}
+
+/* 快捷时间区间：都以「今日」为终点，起点不早于数据首日 */
+function quickRange(kind) {
+  const to = maxDay();
+  const lo = minDay();
+  if (kind === 'all') return [lo || to, to];
+  const from = shiftDay(to, kind === 'month' ? -29 : -6);
+  return [lo && from < lo ? lo : from, to];
+}
+/** 当前区间命中了哪个快捷档（没命中返回 ''）。数据不足一周时「最近一周」== 默认区间，归「全部时间」 */
+function quickKind() {
+  const r = activeRange();
+  if (!r) return 'all';
+  const d = defaultRange();
+  if (r[0] === d[0] && r[1] === d[1]) return 'all';
+  for (const k of ['week', 'month']) {
+    const q = quickRange(k);
+    if (r[0] === q[0] && r[1] === q[1]) return k;
+  }
+  return '';
+}
+
+let toastTimer = null;
+function toast(msg, undo) {
+  const t = $('toast');
+  t.innerHTML = '<span>' + esc(msg) + '</span>' + (undo ? '<button id="toastUndo">撤销</button>' : '');
+  t.classList.add('show');
+  if (undo) $('toastUndo').onclick = () => { t.classList.remove('show'); undo(); };
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), undo ? 4200 : 1800);
+}
+
+function levelOf(v) {
+  if (v >= 90) return { w: '完全认可', c: '#15803d' };
+  if (v >= 75) return { w: '基本认可', c: '#2563eb' };
+  if (v >= 60) return { w: '部分存疑', c: '#d97706' };
+  if (v >= 40) return { w: '问题较多', c: '#c2410c' };
+  return { w: '不认可', c: '#b91c1c' };
+}
+
+/* ---------------- 初始化 ---------------- */
+async function boot() {
+  // 带上令牌：服务端按身份决定要不要下发部门 / 检查人 / 填写人员（不是前端藏）
+  const [meta, hz] = await Promise.all([
+    fetch('/api/meta', { headers: adminHeaders() }).then((r) => r.json()),
+    fetch('/api/hazards', { headers: adminHeaders() }).then((r) => r.json()),
+  ]);
+  S.meta = meta; S.dims = meta.dimensions; S.init = meta.initScore || 90;
+  S.records = hz.records;
+  S.admin = !!meta.admin;
+  if (!S.admin && adminToken()) setAdminToken('');   // 服务重启过 → 本地令牌已成死令牌，清掉
+  applyAdmin();
+
+  const deptSet = [];
+  const days = [];
+  for (const r of S.records) {
+    const d = r.dept || '未标注';
+    if (!deptSet.includes(d)) deptSet.push(d);
+    const day = dayOf(r.time);
+    if (day) days.push(day);
+  }
+  S.depts = deptSet;
+  days.sort();
+  S.span = { first: days[0] || '', last: days[days.length - 1] || '' };
+  const [df, dt] = defaultRange();
+  S.filterFrom = df; S.filterTo = dt;      // 默认「记录首日 ~ 今日」（= 全部时间）
+  buildItems();
+  if (!S.reviewer) showGate();
+  else { $('btnMe').textContent = S.reviewer; await pullMine(); }
+  rebuildDeck();
+}
+
+function buildItems() {
+  S.items = [];
+  for (const rec of S.records) {
+    if (!rec.hazards.length) S.items.push({ rid: rec.id, no: 0, rec, hz: null, kind: 'none' });
+    else for (const h of rec.hazards) S.items.push({ rid: rec.id, no: h.no, rec, hz: h, kind: 'hz' });
+  }
+}
+
+/* ---------------- 管理员模式（部门 / 检查人 / 填写人员） ---------------- */
+// 手机端也留一个解锁入口：工程师自己想看部门/检查人时用得上。
+// 默认（未解锁）卡片上不显示这些 —— 评分时不知道是哪个单位、谁检查的，打分更客观。
+const ADMIN_KEY = 'hr_admin_token';
+function adminToken() { try { return sessionStorage.getItem(ADMIN_KEY) || ''; } catch (e) { return ''; } }
+function setAdminToken(t) {
+  try { t ? sessionStorage.setItem(ADMIN_KEY, t) : sessionStorage.removeItem(ADMIN_KEY); } catch (e) { /* 隐私模式会抛 */ }
+}
+function adminHeaders() { const t = adminToken(); return t ? { 'x-admin-token': t } : {}; }
+
+function applyAdmin() {
+  const on = !!S.admin;
+  document.body.classList.toggle('admin', on);
+  $('btnLock').textContent = on ? '🔓 已解锁' : '🔒 管理员';
+}
+
+function lockErr(msg) {
+  const el = $('lockErr');
+  if (!msg) { el.hidden = true; return; }
+  el.textContent = msg;
+  el.hidden = false;
+}
+
+function openLock() {
+  $('lockbox').classList.add('show');
+  $('lockErr').hidden = true;
+  $('lockPw').value = '';
+  setTimeout(() => $('lockPw').focus(), 60);
+}
+
+/** 解锁后重新拉数据并就地刷新：尽量停在原来那张卡上，别把人甩回第一张 */
+async function reloadAsAdmin() {
+  const keep = { idx: S.idx, from: S.filterFrom, to: S.filterTo, status: S.filterStatus, none: S.showNone, kw: S.keyword };
+  await boot();
+  S.filterFrom = keep.from; S.filterTo = keep.to;
+  S.filterStatus = keep.status; S.showNone = keep.none; S.keyword = keep.kw;
+  applyFilter();
+  S.idx = Math.min(keep.idx, Math.max(0, S.filtered.length - 1));
+  rebuildDeck();
+}
+
+async function unlockPhone() {
+  const pw = $('lockPw').value;
+  if (!pw) { lockErr('请输入管理员密码'); $('lockPw').focus(); return; }
+  lockErr('');
+  $('lockGo').disabled = true;
+  try {
+    const r = await fetch('/api/admin/login', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ password: pw }),
+    }).then((x) => x.json());
+    if (!r.ok) { lockErr(r.error || '密码不对'); $('lockPw').value = ''; $('lockPw').focus(); return; }
+    setAdminToken(r.token);
+    $('lockPw').value = '';
+    $('lockbox').classList.remove('show');
+    await reloadAsAdmin();
+    toast('已进入管理员模式：卡片上会显示部门与检查人');
+  } catch (e) {
+    lockErr('网络异常，稍后再试');
+  } finally {
+    $('lockGo').disabled = false;
+  }
+}
+
+async function lockPhone() {
+  if (adminToken()) {
+    try { await fetch('/api/admin/logout', { method: 'POST', headers: adminHeaders() }); } catch (e) { /* 忽略 */ }
+  }
+  setAdminToken('');
+  await reloadAsAdmin();
+  toast('已退出管理员模式');
+}
+
+async function pullMine() {  if (!S.reviewer) return;
+  try {
+    const r = await fetch('/api/my?reviewer=' + encodeURIComponent(S.reviewer)).then((x) => x.json());
+    S.mine = new Map();
+    for (const it of r.items) S.mine.set(keyOf(it.recordId, it.hazardNo), it);
+    S.generals = r.generals || {};
+    if (!Object.keys(S.generals).length && r.general) S.generals = { '全部': r.general };
+  } catch (e) { console.warn(e); }
+}
+
+/* ---------------- 引导页 ---------------- */
+function showGate() {
+  $('gate').style.display = 'flex';
+  const names = [...new Set([].concat(S.meta.inspectors || [], (S.meta.reviewers || []).map((r) => r.name)))];
+  $('nameList').innerHTML = names.map((n) => `<option value="${esc(n)}">`).join('');
+  $('gGo').onclick = async () => {
+    const name = $('gName').value.trim();
+    if (!name) { toast('请先填写姓名'); return; }
+    S.reviewer = name;
+    localStorage.setItem('hr_reviewer', S.reviewer);
+    $('gate').style.display = 'none';
+    $('btnMe').textContent = S.reviewer;
+    await pullMine();
+    rebuildDeck();
+    save({}, true);
+  };
+}
+
+/* ---------------- 牌堆 ---------------- */
+/**
+ * 关键词是否命中该条目。
+ * 搜索范围 = 记录编号 + 隐患名称 + 隐患描述 + 法规依据；AI 未识别到隐患的记录则退化为记录小结
+ * （它没有隐患字段可比）。命中之后要不要收进牌堆，由 passes() 决定。
+ */
+function matchKeyword(it, kw) {
+  if (!kw) return true;
+  const hay = (it.rid + ' ' + (it.hz ? it.hz.name + ' ' + it.hz.desc + ' ' + it.hz.basis : it.rec.summary)).toLowerCase();
+  return hay.includes(kw);
+}
+
+/**
+ * 单条是否通过筛选 —— 全站唯一的一份筛选口径。
+ *
+ * 抽出来的原因：这条规则原本在 applyFilter()、scopeItems()、筛选面板的条数预告、
+ * 搜索面板的条数预告里各写了一遍，四份逻辑靠人肉同步。结果就是「面板写着 113 条、
+ * 点下去出来 109 条」这种最伤信任的 bug（差额来自靠记录小结命中关键词的漏检记录）。
+ * 现在四处都调 passes()，要改只改一处。
+ *
+ * @param opt.kw     关键词（已 trim，大小写不敏感）
+ * @param opt.range  识别时间区间，null = 不限
+ * @param opt.status 'all' | 'todo' | 'done' | 'issue' | 'miss'
+ * @param opt.none   是否纳入「AI 未识别到隐患」的记录
+ */
+function passes(it, opt) {
+  const kw = (opt.kw || '').trim().toLowerCase();
+  if (it.kind === 'none') {
+    // 关键词生效时不收漏检记录：用户搜的是「隐患」，AI 一条没报的记录不是隐患。
+    // 想复核这类记录，走筛选面板的「疑似漏检」，那条路的口径是召回率，两件事别混。
+    if (kw) return false;
+    if (!opt.none && opt.status !== 'miss') return false;
+  }
+  if (!inRange(dayOf(it.rec.time), opt.range)) return false;   // 时间范围可单独或与关键词联合
+  const m = S.mine.get(keyOf(it.rid, it.no));
+  if (opt.status === 'todo' && m) return false;
+  if (opt.status === 'done' && !m) return false;
+  if (opt.status === 'issue' && !(m && m.verdict === 'issue')) return false;
+  // 「疑似漏检」= 所有 AI 未识别到隐患的记录（召回率口径，不管评没评过都要能捞出来）
+  if (opt.status === 'miss' && it.kind !== 'none') return false;
+  return matchKeyword(it, kw);
+}
+
+function applyFilter() {
+  const opt = { kw: S.keyword, range: activeRange(), status: S.filterStatus, none: S.showNone };
+  S.filtered = S.items.filter((it) => passes(it, opt));
+}
+
+/** keepKey：尽量停在这条上；否则定位到第一条未评 */
+function rebuildDeck(keepKey) {
+  applyFilter();
+  let i = -1;
+  if (keepKey) i = S.filtered.findIndex((x) => keyOf(x.rid, x.no) === keepKey);
+  if (i < 0) i = S.filtered.findIndex((x) => !S.mine.has(keyOf(x.rid, x.no)));
+  S.idx = i >= 0 ? i : 0;
+  paintDeck();
+}
+
+function refreshProgress() {
+  const total = S.filtered.length;
+  let done = 0, skipped = 0;
+  for (let i = 0; i < total; i++) {
+    const x = S.filtered[i];
+    if (S.mine.has(keyOf(x.rid, x.no))) done++;
+    else if (i < S.idx) skipped++;          // 已经翻过去、但还没评的
+  }
+  $('pAll').textContent = total;
+  $('pIdx').textContent = total ? Math.min(S.idx + 1, total) : 0;
+  $('pDone').textContent = done;
+  $('pTodo').textContent = Math.max(0, total - done);
+  const pct = total ? Math.round((done / total) * 100) : 0;
+  $('pPct').textContent = pct + '%';
+  $('pBar').style.width = pct + '%';
+
+  const sk = $('pSkip');
+  if (skipped > 0) {
+    sk.hidden = false;
+    sk.innerHTML = `前面跳过 <b>${skipped}</b> 条未评 · 点此回看`;
+  } else {
+    sk.hidden = true;
+  }
+  refreshRangeNote();
+  refreshSearchNote();
+}
+
+/** 顶部提示：当前只看了某段时间（默认全部时间），点一下去调整 */
+function refreshRangeNote() {
+  const el = $('pRange');
+  const r = activeRange();
+  if (!r || isAllTime()) { el.hidden = true; return; }
+  el.hidden = false;
+  el.innerHTML = `仅看 <b>${shortRange(r)}</b> · 当前 ${S.filtered.length} 条 / 全量 ${S.items.length} 条 · 点此调整`;
+}
+
+/**
+ * 顶部提示：当前是「搜索出来的一批」。
+ * 这条提示兼着「你现在看的不是全量」和「怎么退出搜索」两件事 —— 搜索态下最容易犯的错，
+ * 就是评完几条后忘了自己还在搜索里，以为已经干完了。
+ */
+function refreshSearchNote() {
+  const el = $('pSearch');
+  const kw = S.keyword.trim();
+  if (!kw) { el.hidden = true; return; }
+  el.hidden = false;
+  const done = S.filtered.filter((x) => S.mine.has(keyOf(x.rid, x.no))).length;
+  el.innerHTML = `🔍 搜索「<b>${esc(kw)}</b>」· ${S.filtered.length} 条 · 已评 ${done} · 点此改关键词或清除`;
+}
+
+/** 跳到当前卡片之前第一条未评的（回看跳过的卡片） */
+function jumpToSkipped() {
+  const i = S.filtered.findIndex((x, k) => k < S.idx && !S.mine.has(keyOf(x.rid, x.no)));
+  if (i < 0) { toast('前面没有跳过的卡片'); return; }
+  S.idx = i;
+  paintDeck();
+}
+
+function showPanel(html, wide) {
+  const p = $('panel');
+  p.innerHTML = html;
+  p.classList.toggle('wide', !!wide);
+  p.hidden = false;
+  $('swipe').hidden = true;
+  $('ops').hidden = true;
+  setBg(0);
+}
+function hidePanel() {
+  $('panel').hidden = true;
+  $('swipe').hidden = false;
+  $('ops').hidden = false;
+}
+
+function paintDeck() {
+  const sw = $('swipe');
+  delete sw.dataset.busy;
+  const total = S.filtered.length;
+
+  if (!total) {
+    const kw = S.keyword.trim();
+    showPanel(`<div class="ic" style="background:#f1f3f7;color:#8b95a6">—</div>
+      <h2>${kw ? '没搜到含「' + esc(kw) + '」的隐患' : '当前筛选下没有隐患'}</h2>
+      <p>${kw
+        ? '换个关键词试试（如「电气」「消防」），或清除搜索回到全部隐患'
+        : '试试调整时间范围，或打开「含 AI 未识别到隐患的记录」'}</p>
+      <div class="acts">
+        ${kw ? '<button class="p" data-act="search">换个关键词</button><button data-act="clearSearch">清除搜索</button>'
+             : '<button class="p" data-act="search">搜索隐患</button><button data-act="filter">调整筛选</button>'}
+      </div>`);
+    refreshProgress();
+    return;
+  }
+
+  if (S.idx < 0) S.idx = 0;
+  if (S.idx >= total) { showOverview(); return; }
+
+  hidePanel();
+  const it = S.filtered[S.idx];
+  sw.dataset.k = keyOf(it.rid, it.no);
+
+  const card = $('card');
+  card.classList.remove('anim');
+  card.style.transition = 'none';
+  card.style.transform = 'translateX(0)';
+  card.style.opacity = '0';
+  card.innerHTML = cardHtml(it);
+  card.scrollTop = 0;
+  void card.offsetWidth;                 // 强制重排，避免翻页时跟着动画
+  card.style.transition = '';
+  card.classList.add('anim');
+  card.style.opacity = '1';
+  setTimeout(() => card.classList.remove('anim'), 300);
+
+  setBg(0);
+  refreshProgress();
+  ensureBasis();
+}
+
+/**
+ * 法规依据全文的补全。
+ *
+ * 列表里每条依据只带前 56 字（截断版整包 gzip 73.7KB，带全文要 97KB —— 工地网络下这 23KB 值钱），
+ * 全文靠 S.basisCache 按需补。所以「全文没到手」必须表现得像「正在加载」，
+ * 绝不能让人把半句法规当成完整依据 —— 评分维度里就有「依据适用性」，看半句会判错。
+ */
+let basisTimer = null;
+const basisFailed = new Set();     // 拉失败的 key（含服务端 200 却没给这个 key 的情况）
+
+/** 该条目是否需要补全文：本来就短的、或已缓存的，都不用 */
+function basisMissing(x) {
+  if (!x || !x.hz || !x.hz.more) return null;
+  const k = keyOf(x.rid, x.no);
+  return S.basisCache.has(k) ? null : k;
+}
+
+/**
+ * 预热当前卡前后各 8 张。
+ * 只往后看是不够的 —— 工程师会左滑退回上一条改分，缓存没覆盖到就又要等一次网络。
+ */
+function ensureBasis() {
+  clearTimeout(basisTimer);
+  basisTimer = setTimeout(() => {
+    const keys = [];
+    const lo = Math.max(0, S.idx - 8), hi = Math.min(S.idx + 9, S.filtered.length);
+    for (let i = lo; i < hi; i++) {
+      const k = basisMissing(S.filtered[i]);
+      if (k && !keys.includes(k)) keys.push(k);
+    }
+    if (keys.length) fetchBasis(keys);
+  }, 60);
+}
+
+/** 拉全文。失败重试一次；仍失败就记进 basisFailed，让抽屉显示「重试」而不是假装完整 */
+async function fetchBasis(keys, retry = 1) {
+  const done = () => {
+    for (const k of keys) {
+      // 服务端 200 但没给这个 key（索引里没有）→ 和断网一样处理，
+      // 否则抽屉会永远停在「加载中」，比截断版还糟
+      if (S.basisCache.has(k)) basisFailed.delete(k); else basisFailed.add(k);
+    }
+    fillBasisNow();
+  };
+  try {
+    const o = await fetch('/api/basis?keys=' + encodeURIComponent(keys.join(','))).then((r) => r.json());
+    for (const k of Object.keys(o)) S.basisCache.set(k, o[k]);
+    done();
+    return true;
+  } catch (e) {
+    if (retry > 0) return fetchBasis(keys, retry - 1);
+    done();
+    return false;
+  }
+}
+
+/** 全文到位后补进当前可见处：列表卡片 + 评分抽屉共用同一份缓存 */
+function fillBasisNow() {
+  const sw = $('swipe');
+  if (sw && !sw.hidden && sw.dataset.k) {
+    const full = S.basisCache.get(sw.dataset.k);
+    const el = $('card').querySelector('[data-basis-text]');
+    if (el && full && el.textContent !== full) el.textContent = full;
+  }
+  if (curKey) fillSheetBasis(curKey);
+}
+
+/**
+ * 抽屉里的依据文本。
+ * 列表卡片用的是 basisCache（预热过就是全文），抽屉以前直接用 hz.basis（截断版）——
+ * 于是「预览是全文、点进去只剩半句」，看起来就像功能坏了。两边必须同源。
+ */
+function fillSheetBasis(k) {
+  const el = $('basisTxt');
+  if (!el || !k) return;
+  const full = S.basisCache.get(k);
+  if (full) { el.className = ''; el.onclick = null; el.textContent = full; return; }
+  const it = S.items.find((x) => x.rid + '#' + x.no === k);
+  if (!it || !it.hz || !it.hz.more) return;        // 本来就是短的，不用补
+  if (basisFailed.has(k)) {
+    el.className = 'basisretry';
+    el.textContent = '依据全文加载失败，点此重试';
+    el.onclick = () => {
+      basisFailed.delete(k);
+      el.className = 'basisloading';
+      el.textContent = '依据全文加载中…';
+      fetchBasis([k]);
+    };
+  } else {
+    el.className = 'basisloading';
+    el.textContent = '依据全文加载中…';
+  }
+}
+
+/* ---------------- 筛选进度总览（圆点阵列 + 结果预览） ---------------- */
+/**
+ * 意见归属：当前这批隐患的身份 —— 「关键词 + 时间范围」。
+ * 关键词必须进 key：搜「电气」和搜「消防」是两批人、两份处理意见，
+ * 不加这一维就会互相覆盖（同一个 scope 字符串 → 后者盖掉前者）。
+ */
+function scopeKey() {
+  const parts = [];
+  const kw = S.keyword.trim();
+  if (kw) parts.push('关键词:' + kw);
+  const r = activeRange();
+  if (r && !isAllTime()) parts.push('时间:' + r[0] + '~' + r[1]);
+  return parts.length ? parts.join('|') : '全部';
+}
+function scopeLabel() {
+  const parts = [];
+  const kw = S.keyword.trim();
+  if (kw) parts.push('含「' + kw + '」');
+  const r = activeRange();
+  if (r && !isAllTime()) parts.push(r[0] + ' ~ ' + r[1]);
+  return parts.length ? parts.join(' · ') : '全部数据';
+}
+
+/** 当前这批隐患的全部条目（忽略状态筛选与开关，用于总览口径）；关键词口径与 passes() 保持一致 */
+function scopeItems() {
+  const pr = activeRange();
+  const kw = S.keyword.trim().toLowerCase();
+  return S.items.filter((it) => {
+    if (kw && it.kind === 'none') return false;   // 搜索的是隐患，AI 一条没报的记录不算
+    if (!inRange(dayOf(it.rec.time), pr)) return false;
+    return matchKeyword(it, kw);
+  });
+}
+
+function overviewStats() {
+  const rows = S.filtered.map((x) => ({ it: x, m: S.mine.get(keyOf(x.rid, x.no)) }));
+  const total = rows.length;
+  const done = rows.filter((r) => r.m).length;
+  const pass = rows.filter((r) => r.m && r.m.verdict === 'pass').length;
+  const issue = rows.filter((r) => r.m && r.m.verdict === 'issue').length;
+  const dims = S.dims.map((d) => {
+    const vs = [];
+    for (const r of rows) {
+      const v = r.m && r.m.scores ? r.m.scores[d.key] : undefined;
+      if (typeof v === 'number') vs.push(v);
+    }
+    return { d, n: vs.length, avg: vs.length ? Math.round(vs.reduce((a, b) => a + b, 0) / vs.length) : null };
+  });
+  const avgs = dims.filter((x) => x.avg !== null).map((x) => x.avg);
+  const overall = avgs.length ? Math.round(avgs.reduce((a, b) => a + b, 0) / avgs.length) : null;
+  const firstTodo = rows.findIndex((r) => !r.m);
+
+  // 漏检复核（召回率口径）：AI 未识别到隐患的记录，不管评没评过都算进来
+  const noneRows = scopeItems().filter((x) => x.kind === 'none');
+  const noneTotal = noneRows.length;
+  const noneDone = noneRows.filter((x) => S.mine.has(keyOf(x.rid, x.no))).length;
+  const noneMarked = noneRows.filter((x) => {
+    const m = S.mine.get(keyOf(x.rid, x.no));
+    return m && m.verdict === 'issue';
+  }).length;
+  // 严重度：只有「疑似漏检」才计权重，重大漏检单独拎出来（硬红线）
+  const noneSev = { general: 0, major: 0, critical: 0 };
+  let noneWeighted = 0;
+  const SEV_W = { general: 1, major: 3, critical: 10 };
+  for (const x of noneRows) {
+    const m = S.mine.get(keyOf(x.rid, x.no));
+    if (!m || m.verdict !== 'issue') continue;
+    const sv = SEV_W[m.severity] ? m.severity : 'general';
+    noneSev[sv]++;
+    noneWeighted += SEV_W[sv];
+  }
+
+  // 已识别隐患的严重度标注 —— 「报错了」和「没报」一样危险，重大 × 识别存疑 = 红线
+  const hzSev = { general: 0, major: 0, critical: 0 };
+  let hzLabeled = 0, hzCritWrong = 0, hzCritOk = 0;
+  for (const r of rows) {
+    const sv = r.m && SEV_W[r.m.severity] ? r.m.severity : '';
+    if (!sv) continue;
+    hzLabeled++;
+    hzSev[sv]++;
+    if (sv === 'critical') { if (r.m.verdict === 'issue') hzCritWrong++; else hzCritOk++; }
+  }
+
+  return { rows, total, done, todo: total - done, pass, issue, dims, overall, firstTodo,
+    noneTotal, noneDone, noneMarked, noneSev, noneWeighted,
+    hzSev, hzLabeled, hzCritWrong, hzCritOk };
+}
+
+function dotsHtml(st) {
+  return st.rows.map((r, i) => {
+    const sev = r.m ? r.m.severity : '';
+    let cls;
+    if (!r.m) cls = '';
+    else if (r.it.kind === 'none') {
+      cls = r.m.verdict === 'issue'
+        ? (sev === 'critical' ? ' d-crit' : sev === 'major' ? ' d-major' : ' d-miss')
+        : ' d-pass';
+    } else {
+      // 已识别隐患：圆点颜色 = 严重度（风险等级），「识别对错」看 title
+      cls = sev === 'critical' ? ' d-crit' : sev === 'major' ? ' d-major'
+        : r.m.verdict === 'issue' ? ' d-issue' : ' d-pass';
+    }
+    const label = r.it.kind === 'none'
+      ? r.it.rid + ' 漏检复核' + (r.m && r.m.verdict === 'issue'
+        ? (sev === 'critical' ? '（重大隐患漏检）' : sev === 'major' ? '（较大隐患漏检）' : '（疑似漏检）') : '')
+      : r.it.rid + ' ' + r.it.no + '. ' + (r.it.hz.name || '')
+        + (sev === 'critical' ? (r.m.verdict === 'issue' ? '（重大隐患 · 识别出错）' : '（重大隐患 · 识别正确）')
+          : sev === 'major' ? '（较大隐患）' : '');
+    return `<button class="dot${cls}${i === S.idx ? ' d-cur' : ''}" data-jump="${i}" title="${esc(label)}"></button>`;
+  }).join('');
+}
+
+/** 维度雷达图（零依赖 SVG）：value 0-100。画布比图形宽一圈，否则左右文字标签会被裁掉 */
+function radarSvg(items, opts) {
+  const o = opts || {};
+  const size = o.size || 200;
+  const W = Math.round(size * 1.45);
+  const H = Math.round(size * 1.12);
+  const cx = W / 2, cy = H / 2;
+  const R = size * 0.30;
+  const labelR = R + Math.round(size * 0.078);
+  const fs1 = size >= 260 ? 12 : 11;
+  const fs2 = size >= 260 ? 11.5 : 11;
+  const n = items.length || 1;
+  const ang = (i) => -Math.PI / 2 + (i * 2 * Math.PI) / n;
+  const pt = (i, r) => [cx + Math.cos(ang(i)) * r, cy + Math.sin(ang(i)) * r];
+  const f = (x) => (Math.round(x * 10) / 10).toFixed(1);
+  const tint = (v) => (v == null ? '#94a3b8' : v >= 90 ? '#15803d' : v >= 75 ? '#2563eb' : v >= 60 ? '#d97706' : '#b91c1c');
+
+  let grid = '';
+  for (const lv of [25, 50, 75, 100]) {
+    const r = (R * lv) / 100;
+    grid += `<polygon points="${items.map((_, i) => pt(i, r).map(f).join(',')).join(' ')}" fill="none" stroke="#e6ebf3" stroke-width="1"/>`;
+  }
+  items.forEach((_, i) => {
+    const p = pt(i, R);
+    grid += `<line x1="${f(cx)}" y1="${f(cy)}" x2="${f(p[0])}" y2="${f(p[1])}" stroke="#e6ebf3" stroke-width="1"/>`;
+  });
+
+  const dpts = items.map((it, i) => pt(i, (R * Math.max(0, Math.min(100, it.value == null ? 0 : it.value))) / 100));
+  let data = `<polygon points="${dpts.map((p) => p.map(f).join(',')).join(' ')}" fill="#2563eb" fill-opacity="0.18" stroke="#2563eb" stroke-width="1.8" stroke-linejoin="round"/>`;
+  data += dpts.map((p, i) => `<circle cx="${f(p[0])}" cy="${f(p[1])}" r="2.8" fill="#fff" stroke="#2563eb" stroke-width="1.8"><title>${esc(items[i].label)}：${items[i].value == null ? '—' : items[i].value} 分</title></circle>`).join('');
+
+  let labels = '';
+  items.forEach((it, i) => {
+    const p = pt(i, labelR);
+    const cos = Math.cos(ang(i));
+    const anchor = Math.abs(cos) < 0.3 ? 'middle' : cos > 0 ? 'start' : 'end';
+    const short = it.label.replace('隐患', '').replace('法规依据', '依据').replace('依据引用', '引用');
+    labels += `<text x="${f(p[0])}" y="${f(p[1] + 4)}" text-anchor="${anchor}" font-size="${fs1}" font-weight="600" fill="#4a5568">${esc(short)}</text>`;
+    labels += `<text x="${f(p[0])}" y="${f(p[1] + 16)}" text-anchor="${anchor}" font-size="${fs2}" font-weight="800" fill="${tint(it.value)}">${it.value == null ? '—' : it.value}</text>`;
+  });
+
+  return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="维度雷达图">${grid}${data}${labels}</svg>`;
+}
+
+function showOverview() {
+  const st = overviewStats();
+  const pct = st.total ? Math.round((st.done / st.total) * 100) : 0;
+  const markedCnt = st.noneMarked;          // 我标记为疑似漏检的
+  const saved = S.generals[scopeKey()];
+
+  const dimHtml = st.dims.map((x) => `
+    <div class="ovdim">
+      <span class="lab">${esc(x.d.label)}</span>
+      <span class="num">${x.avg === null ? '—' : x.avg + ' 分'}<span style="font-weight:600;color:#9aa4b4"> · ${x.n} 条</span></span>
+      <span class="track"><i style="width:${x.avg === null ? 0 : x.avg}%"></i></span>
+    </div>`).join('');
+
+  const missHtml = st.todo > 0
+    ? `<div class="ovmiss">⚠️ 当前范围还有 <b>${st.todo}</b> 条未评，别漏了
+        ${st.firstTodo >= 0 ? '<br><button data-jump="' + st.firstTodo + '">回到第一条未评</button>' : ''}
+      </div>`
+    : `<div class="ovmiss ok">✅ 当前范围 ${st.total} 条已全部评完，没有遗漏</div>`;
+
+  // 漏检复核（召回率口径）：AI 未识别到隐患的记录，独立于隐患评分统计
+  const sevParts = [];
+  if (st.noneSev.major) sevParts.push(`较大漏检 <b>${st.noneSev.major}</b> 条`);
+  if (st.noneSev.critical) sevParts.push(`<span style="color:#b91c1c">重大漏检 <b>${st.noneSev.critical}</b> 条</span>`);
+  const noneHtml = st.noneTotal
+    ? `<div class="ovnone">漏检复核（召回）· 本次筛选共 <b>${st.noneTotal}</b> 条 AI 未识别到隐患的记录
+        <br>已复核 <b>${st.noneDone}</b> / ${st.noneTotal} 条 · 其中标记疑似漏检 <b>${st.noneMarked}</b> 条
+        ${st.noneWeighted ? ` · 加权漏检量 <b>${st.noneWeighted}</b>` : ''}
+        ${sevParts.length ? '<br>' + sevParts.join(' · ') + ' —— 重大漏检按 10 倍权重计入召回率' : ''}
+      </div>`
+    : '';
+
+  // 已识别隐患的严重度标注 —— 和漏检并列，凑齐「重大隐患风险」的两面：
+  // 漏检 = 没报出来；识别出错 = 报出来了但报错。
+  const hzSevParts = [];
+  if (st.hzSev.major) hzSevParts.push(`较大隐患 <b>${st.hzSev.major}</b> 条`);
+  if (st.hzSev.critical) hzSevParts.push(`<span style="color:#b91c1c">重大隐患 <b>${st.hzSev.critical}</b> 条</span>`);
+  const hzSevHtml = st.hzLabeled
+    ? `<div class="ovnone"${st.hzCritWrong ? ' style="border-color:#f3bcbc;background:#fdeaea"' : ''}>
+        已识别隐患严重度 · 本次筛选已标注 <b>${st.hzLabeled}</b> / ${st.total} 条
+        ${hzSevParts.length ? '<br>' + hzSevParts.join(' · ') : ''}
+        ${st.hzCritWrong ? `<br><b style="color:#b91c1c">⚠ 重大隐患识别出错 ${st.hzCritWrong} 条</b> —— AI 报出来了但报错，和漏检一样不能接受` : ''}
+        ${st.hzCritOk ? `<br>✓ 重大隐患识别正确 ${st.hzCritOk} 条` : ''}
+      </div>`
+    : '';
+
+  showPanel(`
+    <div class="ovwrap">
+      <div class="ovhead">
+        <h2>${st.todo ? '本次筛选进度总览' : '本次筛选已评完'}</h2>
+        <span class="ovscope">${esc(scopeLabel())}</span>
+      </div>
+      <div class="ovsub">已评 ${st.done} / ${st.total} 条 · ${pct}%</div>
+      <div class="dots" id="ovDots">${dotsHtml(st)}</div>
+      <div class="dotlegend">
+        <span><i style="background:#dbe2ec"></i>未评</span>
+        <span><i style="background:#22a35a"></i>认可</span>
+        <span><i style="background:#e8963a"></i>存疑</span>
+        <span><i style="background:#7c5cd6"></i>疑似漏检</span>
+        <span><i style="background:#e8963a;box-shadow:inset 0 0 0 2px #7c3d00"></i>较大漏检</span>
+        <span><i style="background:#b91c1c;box-shadow:inset 0 0 0 2px #5c0d0d"></i>重大漏检</span>
+        <span><i style="background:#b91c1c"></i>重大隐患</span>
+      </div>
+      ${missHtml}
+      ${noneHtml}
+      ${hzSevHtml}
+      <div class="ovstats">
+        <div class="ovstat"><div class="k">已评条数</div><div class="v">${st.done}<small>/ ${st.total}</small></div></div>
+        <div class="ovstat"><div class="k">待评条数</div><div class="v">${st.todo}</div></div>
+        <div class="ovstat"><div class="k">认可 / 存疑</div><div class="v">${st.pass}<small>/ ${st.issue}</small></div></div>
+        <div class="ovstat"><div class="k">综合均分</div><div class="v">${st.overall === null ? '—' : st.overall}<small>分</small></div></div>
+      </div>
+      <div class="ovdims">
+        <div class="slab" style="margin-top:12px">各维度表现</div>
+        <div class="ovdimwrap">
+          <div>${dimHtml}</div>
+          <div class="ovradar">${radarSvg(st.dims.map((x) => ({ label: x.d.label, value: x.avg })), { size: 240 })}</div>
+        </div>
+      </div>
+      <div class="acts" style="justify-content:flex-start;margin-top:12px">
+        <button class="p" data-act="general">${saved ? '修改本次筛选处理意见' : '填写本次筛选处理意见'}</button>
+        ${st.todo ? '<button class="g" data-act="back">继续处理</button>' : '<button data-act="back">回看卡片</button>'}
+        <button data-act="filter">调整筛选</button>
+      </div>
+      ${saved ? '<div class="ovsub" style="margin-top:10px">已填写的处理意见：<br>' + esc(saved.slice(0, 160)) + (saved.length > 160 ? '…' : '') + '</div>' : ''}
+    </div>`, true);
+  refreshProgress();
+}
+
+function advance(d) {
+  const n = S.idx + d;
+  if (n < 0) { toast('已经是第一条了'); return; }
+  S.idx = n;
+  paintDeck();
+}
+
+/* ---------------- 卡片内容 ---------------- */
+function metaHtml(it) {
+  // 部门 / 检查人是管理员信息（服务端对非管理员已抹空，这里再按身份隐藏，免得留一个空标签）
+  return `<div class="cmeta">
+    <span class="recid">${esc(it.rid)}</span>
+    <span class="tag adminonly">${esc(it.rec.dept || '未标注')}</span>
+    <span class="adminonly">检查人 ${esc(it.rec.inspector || '—')}</span>
+    <span>${esc((it.rec.time || '').slice(0, 16))}</span>
+  </div>`;
+}
+
+function picHtml(it) {
+  if (!it.rec.image) return '';
+  return `<div class="picwrap">
+    <img class="pic" src="/${esc(it.rec.image)}" alt="现场图片" loading="lazy" data-nodrag>
+    <div class="piccap">点图片放大查看</div>
+  </div>`;
+}
+
+function cardHtml(it) {
+  const k = keyOf(it.rid, it.no);
+  const m = S.mine.get(k);
+
+  if (it.kind === 'none') {
+    const badge = !m
+      ? '<span class="badge b-none">待复核</span>'
+      : m.verdict === 'issue'
+        ? (m.severity === 'critical' ? '<span class="badge b-crit">重大漏检</span>'
+          : m.severity === 'major' ? '<span class="badge b-major">较大漏检</span>'
+            : '<span class="badge b-issue">疑似漏检</span>')
+        : '<span class="badge b-pass">确认无隐患</span>';
+    return `<div class="chead">
+        <div class="cno">—</div>
+        <div class="cname">AI 未识别到隐患</div>
+        ${badge}
+      </div>
+      ${metaHtml(it)}
+      ${picHtml(it)}
+      <div class="csec">
+        <span class="slab">AI 对画面的描述</span>
+        <p>${esc(it.rec.summary || '（无描述）')}</p>
+      </div>
+      <div class="ctip">对照现场图判断：这个场景是否真的没有隐患？<br>左滑 = 确认无隐患；右滑或点「评分」= 标记疑似漏检并说明漏了什么。</div>`;
+  }
+
+  const hz = it.hz;
+  let badge;
+  if (!m) badge = '<span class="badge b-none">待评</span>';
+  else if (m.severity === 'critical' && m.verdict === 'issue') badge = '<span class="badge b-crit">已评 · 重大识别出错</span>';
+  else if (m.severity === 'critical') badge = '<span class="badge b-crit">已评 · 重大隐患</span>';
+  else if (m.severity === 'major') badge = '<span class="badge b-major">已评 · 较大隐患</span>';
+  else badge = m.verdict === 'issue' ? '<span class="badge b-issue">已评 · 有存疑</span>' : '<span class="badge b-pass">已评 · 认可</span>';
+
+  let scoreTxt = '';
+  if (m && m.scores) {
+    const vals = S.dims.map((d) => m.scores[d.key]).filter((v) => typeof v === 'number');
+    if (vals.length) scoreTxt = `<span class="myscore">我打的综合分：${Math.round(vals.reduce((a, b) => a + b, 0) / vals.length)} 分</span>`;
+  }
+
+  return `<div class="chead">
+      <div class="cno">${it.no}</div>
+      <div class="cname">${esc(hz.name || '（未命名隐患）')}</div>
+      ${badge}
+    </div>
+    ${metaHtml(it)}
+    ${picHtml(it)}
+    <div class="csec">
+      <span class="slab">隐患描述</span>
+      <p>${esc(hz.desc || '—')}</p>
+    </div>
+    <div class="csec advice">
+      <span class="slab">整改建议</span>
+      <p>${esc(hz.advice || '—')}</p>
+    </div>
+    <div class="csec">
+      <span class="slab">法规依据</span>
+      <div class="basisbox" data-basis>
+        <p>${hz.std ? `<span class="sno">${esc(hz.std)}</span>` : '<span class="nostd">未标注具体条款</span>'}<span class="btxt" data-basis-text>${esc(S.basisCache.get(k) || hz.basis || '未给出具体法规依据')}</span></p>
+      </div>
+    </div>
+    ${scoreTxt}`;
+}
+
+/* ---------------- 左右滑动 ---------------- */
+const THRESHOLD = 88;
+let drag = null;
+
+function setBg(dx) {
+  const pb = $('bgPass'), sb = $('bgScore');
+  if (!pb || !sb) return;
+  pb.style.opacity = dx < 0 ? String(Math.min(1, Math.abs(dx) / THRESHOLD)) : '0';
+  sb.style.opacity = dx > 0 ? String(Math.min(1, dx / THRESHOLD)) : '0';
+}
+
+function resetCard() {
+  const card = $('card');
+  card.classList.add('anim');
+  card.style.transform = '';
+  card.style.opacity = '';
+  setBg(0);
+  setTimeout(() => card.classList.remove('anim'), 300);
+}
+
+function onDown(e) {
+  if (e.target.closest('[data-nodrag]')) return;
+  const sw = $('swipe');
+  if (sw.hidden || sw.dataset.busy) return;
+  const p = e.touches ? e.touches[0] : e;
+  const card = $('card');
+  drag = {
+    sw, card,
+    x: p.clientX, y: p.clientY, lastX: p.clientX, lastY: p.clientY,
+    dx: 0, lock: null, active: false, scrollTop: card.scrollTop,
+  };
+}
+
+function onMove(e) {
+  if (!drag) return;
+  const p = e.touches ? e.touches[0] : e;
+  drag.lastX = p.clientX; drag.lastY = p.clientY;
+  const dx = p.clientX - drag.x, dy = p.clientY - drag.y;
+  if (drag.lock === null) {
+    if (Math.abs(dx) < 8 && Math.abs(dy) < 8) return;
+    drag.lock = Math.abs(dx) > Math.abs(dy) * 1.2 ? 'x' : 'y';
+  }
+  if (drag.lock !== 'x') return;           // 垂直方向一律交给卡片内部滚动
+  if (e.cancelable && e.touches) e.preventDefault();
+  drag.active = true;
+  drag.dx = dx;
+  drag.card.classList.remove('anim');
+  drag.card.style.transform = `translateX(${dx}px)`;
+  setBg(dx);
+}
+
+function onUp(e) {
+  if (!drag) return;
+  const d = drag; drag = null;
+  let ux = d.lastX, uy = d.lastY;
+  if (e && e.changedTouches && e.changedTouches[0]) { ux = e.changedTouches[0].clientX; uy = e.changedTouches[0].clientY; }
+  else if (e && typeof e.clientX === 'number') { ux = e.clientX; uy = e.clientY; }
+  const dist = Math.sqrt((ux - d.x) ** 2 + (uy - d.y) ** 2);
+
+  // 竖向滚动过、或纵向锁定，都不算点击
+  if (!d.active || d.lock !== 'x') {
+    const scrolled = Math.abs(d.card.scrollTop - d.scrollTop) > 4;
+    if (dist < 8 && d.lock !== 'y' && !scrolled) openSheet(d.sw.dataset.k);
+    return;
+  }
+  if (d.dx <= -THRESHOLD) { approveAndNext(); return; }
+  if (d.dx >= THRESHOLD) { resetCard(); openSheet(d.sw.dataset.k); return; }
+  resetCard();
+}
+
+function approveAndNext() {
+  const it = S.filtered[S.idx];
+  if (!it) return;
+  const k = keyOf(it.rid, it.no);
+  const sw = $('swipe'), card = $('card');
+  sw.dataset.busy = '1';
+  card.classList.add('anim');
+  card.style.transform = `translateX(${-(sw.offsetWidth + 80)}px)`;
+  card.style.opacity = '0';
+  quickMark(k, 'pass');
+  setTimeout(() => advance(1), 250);
+}
+
+const swEl = $('swipe');
+swEl.addEventListener('touchstart', onDown, { passive: true });
+swEl.addEventListener('touchmove', onMove, { passive: false });
+swEl.addEventListener('touchend', onUp);
+swEl.addEventListener('touchcancel', onUp);
+swEl.addEventListener('mousedown', onDown);
+window.addEventListener('mousemove', onMove);
+window.addEventListener('mouseup', onUp);
+
+/* 卡内点击：图片放大（法规依据现在直接全文展示，不再折叠） */
+$('card').addEventListener('click', (e) => {
+  const img = e.target.closest('.pic');
+  if (img) { $('viewerImg').src = img.src; $('viewer').classList.add('show'); }
+});
+
+/* 总览面板：圆点跳转 + 按钮 */
+$('panel').addEventListener('click', (e) => {
+  const dot = e.target.closest('[data-jump]');
+  if (dot) {
+    S.idx = Number(dot.dataset.jump) || 0;
+    paintDeck();
+    return;
+  }
+  const b = e.target.closest('[data-act]');
+  if (!b) return;
+  const a = b.dataset.act;
+  if (a === 'back') {
+    // 优先回到第一条未评，否则回看最后一条
+    const i = S.filtered.findIndex((x) => !S.mine.has(keyOf(x.rid, x.no)));
+    S.idx = i >= 0 ? i : Math.max(0, S.filtered.length - 1);
+    paintDeck();
+  } else if (a === 'filter') openFilters();
+  else if (a === 'search') openSearch();
+  else if (a === 'clearSearch') clearSearch();
+  else if (a === 'general') openGeneral();
+  else if (a === 'admin') window.open('/admin', '_blank');
+});
+
+/* 底部操作条 */
+$('btnPrev').onclick = () => advance(-1);
+$('btnNext').onclick = () => advance(1);
+$('btnScore').onclick = () => { if ($('swipe').dataset.k) openSheet($('swipe').dataset.k); };
+$('btnPass').onclick = () => approveAndNext();
+
+/* ---------------- 保存 ---------------- */
+/**
+ * @param silent 成功时不弹「已保存」（调用方自己弹更有信息量的提示）
+ * @param quiet  失败时也不弹 —— 调用方要自己处理失败（比如回滚后给一句「已退回该条」），
+ *               否则两个 toast 会互相盖掉，用户只看到后一句，不知道发生了什么
+ */
+async function save(payload, silent, quiet) {
+  // 不再上报 dept：登录页已去掉部门选择，服务端对缺省值会保留评审人原有的部门，
+  // 老数据不会因为这次改动被抹掉，新评审人就是空部门（部门视图已改为管理员专属）。
+  const body = Object.assign({ reviewer: S.reviewer }, payload);
+  if (body.items) {
+    for (const it of body.items) {
+      const k = keyOf(it.recordId, it.hazardNo);
+      const old = S.mine.get(k) || {};
+      S.mine.set(k, Object.assign({}, old, it, { reviewer: S.reviewer }));
+    }
+  }
+  try {
+    const raw = JSON.stringify(body);
+    const r = await fetch('/api/submit', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: raw,
+      // 乐观提交后用户可能立刻关页面（工地上一路点到底就锁屏），
+      // keepalive 让这个请求在卸载后仍能发完，不至于「看着存上了其实没存」。
+      // 但浏览器对 keepalive 有 64KB 请求体上限，超了直接抛错 —— 逐条评分才几百字节，
+      // 而「总体评价」是自由长文本，所以按体积决定用不用，别把长文本保存搞坏。
+      keepalive: raw.length < 60000,
+    }).then((x) => x.json());
+    if (!r.ok) throw new Error(r.error || 'fail');
+    refreshProgress();
+    if (!silent) toast('已保存');
+    return true;
+  } catch (err) {
+    if (!quiet) toast('保存失败：' + err.message);
+    return false;
+  }
+}
+
+/**
+ * 乐观提交：先关抽屉、先翻到下一张，保存丢后台跑。
+ *
+ * 为什么 —— 手机端左滑（approveAndNext）是「画面立刻滑走 + 后台保存」，
+ * 桌面端点「保存并下一条」却是「等服务端返回才翻页」。线上 RTT ~120ms，
+ * 服务端写盘还有 120ms 防抖，点一下要等 300-500ms，全程没有任何反馈 —— 主观就是「很慢」。
+ * 同一个动作，两端不该有两套体感。
+ *
+ * 失败要能救回来：还原本地状态、索引退回原处、重开抽屉（分数还在面板上），
+ * 让人点一下就能重试。不能悄悄丢掉一条评分 —— 这是评审证据。
+ */
+function commitSheet(k, payload, okMsg) {
+  const i = S.idx;
+  const had = S.mine.has(k);
+  const prev = had ? Object.assign({}, S.mine.get(k)) : null;
+
+  closeSheet();
+  // save() 的同步段会先把 S.mine 写上，所以紧接着翻页时进度/状态是对的
+  const p = save({ items: [payload] }, true, true);
+  advance(1);
+  if (okMsg) toast(okMsg);
+
+  p.then((ok) => {
+    if (ok) return;
+    // 先还原本地状态：无论后面怎么处理，这条都不能留在 S.mine 里冒充「已评」
+    if (had) S.mine.set(k, prev); else S.mine.delete(k);
+
+    // 用户可能已经又评了几条走远了（连点两下保存，第一条慢、第二条快）。
+    // 这时把人从当前那张拽回来更糟 —— 会关掉他正在填的抽屉。
+    // 只还原状态 + 报出是哪一条，让他自己回看；卡片会重新显示为未评，进度条也认得出。
+    if (S.idx !== i + 1) {
+      refreshProgress();
+      toast('保存失败：' + k.split('#')[0] + ' 未存上，请回看补评');
+      return;
+    }
+    S.idx = i;
+    paintDeck();
+    openSheet(k);
+    toast('保存失败，已退回该条，请重试');
+  });
+}
+
+async function removeOnServer(k) {
+  const [rid, no] = k.split('#');
+  try {
+    await fetch('/api/delete', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ reviewer: S.reviewer, recordId: rid, hazardNo: Number(no) }),
+    });
+  } catch (e) { console.warn(e); }
+}
+
+/** 左滑 = 快速认可（隐患四项取初始分 / 空场景确认无隐患） */
+function quickMark(k, kind) {
+  const [rid, noStr] = k.split('#');
+  const no = Number(noStr);
+  const item = S.items.find((x) => x.rid === rid && x.no === no);
+  const scores = {};
+  for (const d of S.dims) scores[d.key] = S.init;
+  const payload = kind === 'pass'
+    ? { recordId: rid, hazardNo: no, verdict: 'pass', scores: item && item.kind === 'none' ? {} : scores, advice: '', note: '' }
+    : { recordId: rid, hazardNo: no, verdict: 'issue', scores: {}, advice: '', note: '' };
+
+  save({ items: [payload] }, true).then((ok) => {
+    if (!ok) return;
+    refreshProgress();
+    const label = item && item.kind === 'none' ? '已确认无隐患' : '已认可';
+    toast(label, async () => {
+      await removeOnServer(k);
+      S.mine.delete(k);
+      const i = S.filtered.findIndex((x) => keyOf(x.rid, x.no) === k);
+      if (i >= 0) S.idx = i;
+      paintDeck();
+    });
+  });
+}
+
+/* ---------------- 详情 / 评分抽屉 ---------------- */
+let curKey = null;
+
+function openSheet(k) {
+  if (!k) return;
+  curKey = k;
+  const [rid, noStr] = k.split('#');
+  const no = Number(noStr);
+  const it = S.items.find((x) => x.rid === rid && x.no === no);
+  if (!it) return;
+  const m = S.mine.get(k) || {};
+  const img = it.rec.image ? '/' + it.rec.image : '';
+
+  if (it.kind === 'none') {
+    const verdict = m.verdict === 'issue' ? 'issue' : 'pass';
+    const sev = m.severity || 'general';
+    $('shTitle').textContent = '漏检复核';
+    $('shBody').innerHTML = `
+      ${img ? `<div class="blk" style="padding:9px"><img class="pic" src="${esc(img)}" alt="现场图片" loading="lazy" id="pic"><div class="piccap">点击图片可放大查看</div></div>` : ''}
+      <div class="blk">
+        <h4>AI 对画面的描述</h4>
+        <p>${esc(it.rec.summary || '（无描述）')}</p>
+      </div>
+      <div class="blk">
+        <h4>你的判定</h4>
+        <div class="pick" id="pick">
+          <button data-v="pass" class="${verdict === 'pass' ? 'on' : ''}">确认无隐患<span class="sub">画面确实没有隐患</span></button>
+          <button data-v="issue" class="${verdict === 'issue' ? 'on' : ''}">疑似漏检<span class="sub">有隐患但没识别出来</span></button>
+        </div>
+      </div>
+      <div class="blk" id="missBlk" style="${verdict === 'issue' ? '' : 'display:none'}">
+        <h4>漏检隐患的严重度</h4>
+        <div class="pick sev" id="sevPick">
+          <button data-v="general" class="${sev === 'general' ? 'on' : ''}">一般隐患<span class="sub">权重 ×1</span></button>
+          <button data-v="major" class="${sev === 'major' ? 'on' : ''}">较大隐患<span class="sub">权重 ×3</span></button>
+          <button data-v="critical" class="${sev === 'critical' ? 'on' : ''}">重大隐患<span class="sub">权重 ×10</span></button>
+        </div>
+        <div class="sevwarn" id="sevWarn" style="${sev === 'critical' ? '' : 'display:none'}">
+          重大隐患漏检按 10 倍权重计入加权召回率 —— 一条重大漏检就能把召回率显著拉低，属于必须优先整改的红线问题。
+        </div>
+        <h4 style="margin-top:14px">漏检的隐患是什么（建议填写）</h4>
+        <textarea id="adviceBox" placeholder="例如：左侧配电箱箱门敞开，内部元件裸露，存在触电风险">${esc(m.advice || '')}</textarea>
+        <h4 style="margin-top:12px">对应法规依据（可选）</h4>
+        <textarea id="noteBox" placeholder="例如：《建筑电气工程施工质量验收规范》GB 50303-2015 14.2.3">${esc(m.note || '')}</textarea>
+      </div>
+      <div class="blk" style="background:#f8fafd">
+        <h4>本条记录</h4>
+        <p style="font-size:12.5px;color:#5a6474">
+          ${esc(it.rec.id)}<span class="adminonly"> · ${esc(it.rec.dept || '未标注')} · 检查人 ${esc(it.rec.inspector || '—')}</span><br>
+          识别时间 ${esc((it.rec.time || '').slice(0, 16))} · 设备 ${esc(it.rec.device || '—')}
+        </p>
+      </div>`;
+    $('shFoot').innerHTML = `<button class="btn btn-g" id="allPass">确认无隐患</button><button class="btn btn-p" id="doSave">保存并下一条</button>`;
+    $('pick').onclick = (e) => {
+      const b = e.target.closest('button'); if (!b) return;
+      [...$('pick').children].forEach((x) => x.classList.toggle('on', x === b));
+      $('missBlk').style.display = b.dataset.v === 'issue' ? '' : 'none';
+    };
+    $('sevPick').onclick = (e) => {
+      const b = e.target.closest('button'); if (!b) return;
+      [...$('sevPick').children].forEach((x) => x.classList.toggle('on', x === b));
+      $('sevWarn').style.display = b.dataset.v === 'critical' ? '' : 'none';
+    };
+    $('allPass').onclick = () => {
+      [...$('pick').children].forEach((x) => x.classList.toggle('on', x.dataset.v === 'pass'));
+      $('missBlk').style.display = 'none';
+      submitSheet();
+    };
+    $('doSave').onclick = submitSheet;
+    const pic0 = $('pic');
+    if (pic0) pic0.onclick = () => { $('viewerImg').src = pic0.src; $('viewer').classList.add('show'); };
+    openSheetUI();
+    return;
+  }
+
+  const hz = it.hz;
+  const sc = Object.assign({}, m.scores || {});
+  for (const d of S.dims) if (typeof sc[d.key] !== 'number') sc[d.key] = S.init;
+  const hzSev = m.severity || '';
+
+  // 依据全文：抽屉与列表卡片同源（都读 S.basisCache）——
+  // 预览是全文、点进抽屉只剩半句，用户会以为坏了。没命中缓存就写「加载中」，
+  // 不显示带省略号的截断版：工程师要据此判「依据适用性」，看半句会判错。
+  const cachedBasis = S.basisCache.get(k);
+  const basisHtml = cachedBasis ? esc(cachedBasis)
+    : (hz.more ? '依据全文加载中…' : esc(hz.basis || '未给出具体法规依据'));
+  const basisCls = (!cachedBasis && hz.more) ? ' class="basisloading"' : '';
+
+  $('shTitle').textContent = (it.no ? it.no + '. ' : '') + (hz.name || '隐患详情');
+  $('shBody').innerHTML = `
+    ${img ? `<div class="blk" style="padding:9px"><img class="pic" src="${esc(img)}" alt="现场图片" loading="lazy" id="pic"><div class="piccap">点击图片可放大查看</div></div>` : ''}
+    <div class="blk"><h4>隐患描述</h4><p>${esc(hz.desc || '—')}</p></div>
+    <div class="blk"><h4>整改建议</h4><p>${esc(hz.advice || '—')}</p></div>
+    <div class="blk">
+      <h4>法规依据</h4>
+      <div class="basis">${hz.std ? `<span class="sno">${esc(hz.std)}</span>` : ''}<span id="basisTxt"${basisCls}>${basisHtml}</span></div>
+    </div>
+    <div class="blk">
+      <h4>逐项评分</h4>
+      <div id="sliders"></div>
+      <div style="font-size:11.5px;color:#9aa4b4;margin-top:8px">默认 ${S.init} 分为「认可」，发现问题的维度向左拖动即可</div>
+    </div>
+    <div class="blk">
+      <h4>隐患严重度（可选）</h4>
+      <div class="pick sev sev4" id="hazSevPick">
+        <button data-v="" class="${!hzSev ? 'on' : ''}">未标注<span class="sub">默认</span></button>
+        <button data-v="general" class="${hzSev === 'general' ? 'on' : ''}">一般隐患<span class="sub">权重 ×1</span></button>
+        <button data-v="major" class="${hzSev === 'major' ? 'on' : ''}">较大隐患<span class="sub">权重 ×3</span></button>
+        <button data-v="critical" class="${hzSev === 'critical' ? 'on' : ''}">重大隐患<span class="sub">权重 ×10</span></button>
+      </div>
+      <div id="hazSevMsg" style="display:none"></div>
+      <div style="font-size:11.5px;color:#9aa4b4;margin-top:8px">
+        AI 已识别出的隐患同样要标严重度 —— <b>「报错了」和「没报」一样危险</b>：
+        一条被识别成一般问题的重大隐患，危害不比漏检小。若认为 AI 的描述、依据或严重度判断有误，
+        拖低相应维度分或填写修改建议，就会被记为「识别出错」。
+      </div>
+    </div>
+    <div class="blk">
+      <h4>修改建议（可选）</h4>
+      <textarea id="adviceBox" placeholder="这条隐患该怎么改？例如：描述应补充位置信息、法规依据应改为 GB xxxx 第 x 条……">${esc(m.advice || '')}</textarea>
+    </div>
+    <div class="blk">
+      <h4>其他问题（可选）</h4>
+      <textarea id="noteBox" placeholder="其他想补充的问题或意见">${esc(m.note || '')}</textarea>
+    </div>
+    <div class="blk" style="background:#f8fafd">
+      <h4>本条记录</h4>
+      <p style="font-size:12.5px;color:#5a6474">
+        ${esc(it.rec.id)}<span class="adminonly"> · ${esc(it.rec.dept || '未标注')} · 检查人 ${esc(it.rec.inspector || '—')}</span><br>
+        识别时间 ${esc((it.rec.time || '').slice(0, 16))} · 设备 ${esc(it.rec.device || '—')}
+      </p>
+    </div>`;
+
+  const box = $('sliders');
+  for (const d of S.dims) box.appendChild(sliderEl(d, sc[d.key]));
+
+  // 严重度 = 这条隐患「真实有多严重」；识别结论 = AI「报得对不对」。两件事分开，但重大 × 报错 = 红线。
+  // 提示随滑块/文本实时联动，让工程师当场看到自己这一标会不会进红线。
+  const syncHazSev = () => {
+    const el = $('hazSevMsg');
+    if (!el) return;
+    const b = $('hazSevPick') ? $('hazSevPick').querySelector('button.on') : null;
+    const sev = b ? b.dataset.v : '';
+    if (sev === 'critical' && hazardVerdictNow() === 'issue') {
+      el.className = 'sevwarn'; el.style.display = '';
+      el.textContent = '⚠ 重大隐患识别出错 —— 已计入红线告警。AI 报出来了但报错了，和漏检一样不能接受。';
+    } else if (sev === 'critical') {
+      el.className = 'sevinfo'; el.style.display = '';
+      el.textContent = '✓ 重大隐患 · AI 识别正确 —— 计入「识别正确」，用于衡量模型对重大隐患的抓取能力。';
+    } else {
+      el.className = ''; el.style.display = 'none';
+    }
+  };
+  $('hazSevPick').onclick = (e) => {
+    const b = e.target.closest('button'); if (!b) return;
+    [...$('hazSevPick').children].forEach((x) => x.classList.toggle('on', x === b));
+    syncHazSev();
+  };
+  box.addEventListener('input', syncHazSev);
+  ['adviceBox', 'noteBox'].forEach((id) => { const el = $(id); if (el) el.addEventListener('input', syncHazSev); });
+  syncHazSev();
+
+  $('shFoot').innerHTML = `<button class="btn btn-g" id="allPass">全部认可</button><button class="btn btn-p" id="doSave">保存并下一条</button>`;
+  $('allPass').onclick = () => { for (const d of S.dims) setSlider(d.key, S.init); toast('已设为全部认可'); syncHazSev(); };
+  $('doSave').onclick = submitSheet;
+  const pic = $('pic');
+  if (pic) pic.onclick = () => { $('viewerImg').src = pic.src; $('viewer').classList.add('show'); };
+
+  // 依据全文：命中缓存就当场完整显示，没命中才现拉。
+  // 先清掉上一次的失败标记再试 —— 否则一次网络抖动会让这条永远停在「重试」。
+  if (!cachedBasis && hz.more) {
+    basisFailed.delete(k);
+    fillSheetBasis(k);
+    fetchBasis([k]);
+  }
+  openSheetUI();
+}
+
+function openSheetUI() {
+  $('sheet').classList.add('show');
+  $('mask').classList.add('show');
+  document.body.style.overflow = 'hidden';
+}
+
+function sliderEl(d, v) {
+  const wrap = document.createElement('div');
+  wrap.className = 'slider';
+  wrap.dataset.dim = d.key;
+  wrap.innerHTML = `
+    <div class="slhead">
+      <div class="lab">${esc(d.label)}<span class="slword"></span></div>
+      <div class="val">${v}</div>
+    </div>
+    <div class="slhint">${esc(d.hint || '')}</div>
+    <input type="range" min="0" max="100" step="5" value="${v}">
+    <div class="slscale"><span>${esc(d.low || '')}</span><span>${esc(d.high || '')}</span></div>`;
+  const input = wrap.querySelector('input');
+  const paint = () => {
+    const val = Number(input.value);
+    const lv = levelOf(val);
+    wrap.style.setProperty('--pct', val + '%');
+    wrap.style.setProperty('--fillcolor', lv.c);
+    wrap.querySelector('.val').textContent = val;
+    wrap.querySelector('.val').style.color = lv.c;
+    const w = wrap.querySelector('.slword');
+    w.textContent = '· ' + lv.w; w.style.color = lv.c;
+  };
+  input.addEventListener('input', paint);
+  paint();
+  return wrap;
+}
+
+function setSlider(dim, v) {
+  const wrap = document.querySelector(`.slider[data-dim="${dim}"]`);
+  if (!wrap) return;
+  const input = wrap.querySelector('input');
+  input.value = v;
+  input.dispatchEvent(new Event('input'));
+}
+
+/** 当前面板的识别结论 —— 实时提示与提交共用同一口径，避免「提示说有误、存下去是认可」 */
+function hazardVerdictNow() {
+  const low = S.dims.some((d) => {
+    const w = document.querySelector(`.slider[data-dim="${d.key}"]`);
+    return w ? Number(w.querySelector('input').value) < S.init : false;
+  });
+  const advice = $('adviceBox') ? $('adviceBox').value.trim() : '';
+  const note = $('noteBox') ? $('noteBox').value.trim() : '';
+  return (low || advice || note) ? 'issue' : 'pass';
+}
+
+function submitSheet() {
+  // 乐观提交后抽屉立刻关闭、curKey 置空；连点两下第二下会打到这里，
+  // 没有这道闸就会 curKey.split 报错，还可能把同一条提交两遍
+  if (!curKey) return;
+  const [rid, noStr] = curKey.split('#');
+  const no = Number(noStr);
+  const it = S.items.find((x) => x.rid === rid && x.no === no);
+  if (!it) return;
+
+  if (it.kind === 'none') {
+    const pick = $('pick').querySelector('button.on');
+    const verdict = pick ? pick.dataset.v : 'pass';
+    // 严重度只在「疑似漏检」时有意义；确认无隐患就归零，避免残留旧标记
+    const sevBtn = $('sevPick') ? $('sevPick').querySelector('button.on') : null;
+    const severity = verdict === 'issue' ? ((sevBtn && sevBtn.dataset.v) || 'general') : 'general';
+    const advice = verdict === 'issue' && $('adviceBox') ? $('adviceBox').value.trim() : '';
+    const note = verdict === 'issue' && $('noteBox') ? $('noteBox').value.trim() : '';
+    commitSheet(curKey, { recordId: rid, hazardNo: no, verdict, severity, scores: {}, advice, note },
+      verdict === 'issue'
+        ? (severity === 'critical' ? '已标记：重大隐患漏检' : severity === 'major' ? '已标记：较大隐患漏检' : '已标记疑似漏检')
+        : '已确认无隐患');
+    return;
+  }
+
+  const scores = {};
+  for (const d of S.dims) {
+    const w = document.querySelector(`.slider[data-dim="${d.key}"]`);
+    scores[d.key] = w ? Number(w.querySelector('input').value) : S.init;
+  }
+  const advice = $('adviceBox') ? $('adviceBox').value.trim() : '';
+  const note = $('noteBox') ? $('noteBox').value.trim() : '';
+  const verdict = hazardVerdictNow();
+  // 已识别隐患的严重度是可选标注：未标注传空串，服务端不会拿它冒充「一般隐患」冲淡分布
+  const svB = $('hazSevPick') ? $('hazSevPick').querySelector('button.on') : null;
+  const severity = svB ? svB.dataset.v : '';
+  const okMsg = severity === 'critical'
+    ? (verdict === 'issue' ? '已标记：重大隐患识别出错（红线）' : '已标记：重大隐患 · 识别正确')
+    : (severity === 'major' ? '已标记：较大隐患' : '');
+  commitSheet(curKey, { recordId: rid, hazardNo: no, verdict, severity, scores, advice, note }, okMsg);
+}
+
+function closeSheet() {
+  $('sheet').classList.remove('show');
+  $('mask').classList.remove('show');
+  document.body.style.overflow = '';
+  // 抽屉关了就别再往里写 —— 依据全文是异步补的，晚到的响应不该改已关闭的面板
+  curKey = null;
+}
+
+/* ---------------- 筛选面板 ---------------- */
+const F = { from: '', to: '', status: 'all', kw: '', none: false, quick: '' };
+
+const STATUS_LABEL = { todo: '未评', done: '已评', issue: '有存疑', miss: '疑似漏检' };
+
+function filterSummary() {
+  const parts = [];
+  const kw = S.keyword.trim();
+  if (kw) parts.push('「' + kw + '」');
+  const r = activeRange();
+  if (r && !isAllTime()) parts.push(shortRange(r));
+  if (STATUS_LABEL[S.filterStatus]) parts.push(STATUS_LABEL[S.filterStatus]);
+  return parts.length ? parts.join(' · ') : '全部';
+}
+
+/**
+ * 面板内实时提示：这个「时间范围 + 关键词 + 状态」下到底有多少条。
+ * 直接调 passes() —— 面板上写着 12 条、点应用出来 8 条，是最伤信任的那种 bug。
+ */
+function refreshRangeHint() {
+  const f = F.from, t = F.to;
+  const range = (!f && !t) ? null : [f || '0000-01-01', t || '9999-12-31'];
+  const kw = (F.kw || '').trim().toLowerCase();
+  const noneIn = F.none || F.status === 'miss';
+  const opt = { kw, range, status: F.status, none: noneIn };
+  const recIds = new Set();
+  let hz = 0, noneRecs = 0;
+  for (const it of S.items) {
+    if (!passes(it, opt)) continue;
+    if (it.kind === 'none') noneRecs++; else hz++;
+    recIds.add(it.rid);
+  }
+  const recs = recIds.size;
+  const spanTxt = S.span.first ? `${S.span.first} ~ ${S.span.last}` : '—';
+  $('fRangeHint').innerHTML =
+    `该范围共 <b>${recs}</b> 条记录，可评 <b>${hz + noneRecs}</b> 条` +
+    `<br>隐患卡片 <b>${hz}</b> 条 · 漏检复核 <b>${noneRecs}</b> 条（AI 未识别到隐患${noneIn ? '，已纳入' : '，开关关闭未纳入'}）` +
+    (kw ? `<br>已叠加关键词：<em>${esc(kw)}</em>（搜索只收命中关键词的隐患，不含漏检记录）` : '') +
+    `<br>全部数据时间跨度：${spanTxt}` +
+    `<br>可选日期：${minDay() || '—'} ~ ${maxDay()}（今天）`;
+
+  const kind = F.quick;
+  [...$('fQuick').children].forEach((b) => b.classList.toggle('on', b.dataset.r === kind));
+}
+
+function buildChips() {
+  [...$('fStatus').children].forEach((b) => b.classList.toggle('on', b.dataset.v === F.status));
+  $('swNone').classList.toggle('on', F.none);
+  applyDateLimits();                       // 最早 = 数据首日，最晚 = 今天
+  $('fFrom').value = F.from || '';
+  $('fTo').value = F.to || '';
+  refreshRangeHint();
+}
+
+function openFilters() {
+  $('searchbox').classList.remove('show');   // 两个面板都从底部升起，同时开会叠在一起
+  F.from = clampDay(S.filterFrom); F.to = clampDay(S.filterTo);
+  F.status = S.filterStatus;
+  F.kw = S.keyword; F.none = S.showNone;
+  F.quick = quickKind();
+  $('fKey').value = F.kw;
+  buildChips();
+  $('filters').classList.add('show');
+}
+
+function applyFilters() {
+  S.filterFrom = F.from; S.filterTo = F.to;
+  S.filterStatus = F.status;
+  S.keyword = F.kw; S.showNone = F.none;
+  $('filterLabel').textContent = filterSummary();
+  $('filters').classList.remove('show');
+  rebuildDeck();
+}
+
+/* 起止日期：越界先夹到可选范围，起点晚于终点再互换 */
+function onDateChange() {
+  const cf = clampDay(F.from), ct = clampDay(F.to);
+  if (cf !== F.from || ct !== F.to) {
+    F.from = cf; F.to = ct;
+    $('fFrom').value = F.from; $('fTo').value = F.to;
+  }
+  if (F.from && F.to && F.from > F.to) {
+    const t = F.from; F.from = F.to; F.to = t;
+    $('fFrom').value = F.from; $('fTo').value = F.to;
+  }
+  refreshRangeHint();
+}
+$('fFrom').oninput = (e) => { F.from = e.target.value; F.quick = ''; onDateChange(); };
+$('fTo').oninput = (e) => { F.to = e.target.value; F.quick = ''; onDateChange(); };
+$('fQuick').onclick = (e) => {
+  const b = e.target.closest('button'); if (!b) return;
+  const [f, t] = quickRange(b.dataset.r);
+  F.from = f; F.to = t; F.quick = b.dataset.r;
+  $('fFrom').value = F.from; $('fTo').value = F.to;
+  refreshRangeHint();
+};
+
+$('fStatus').onclick = (e) => {
+  const b = e.target.closest('button'); if (!b) return;
+  F.status = b.dataset.v;
+  if (b.dataset.v === 'miss') { F.none = true; $('swNone').classList.add('on'); }
+  [...e.currentTarget.children].forEach((x) => x.classList.toggle('on', x === b));
+  refreshRangeHint();                 // 「疑似漏检」会强制纳入漏检复核 → 条数跟着变
+};
+$('swNone').onclick = () => {
+  F.none = !F.none;
+  $('swNone').classList.toggle('on', F.none);
+  refreshRangeHint();                 // 开关决定漏检复核算不算可评条目
+};
+$('fKey').oninput = (e) => { F.kw = e.target.value; refreshRangeHint(); };
+$('fClose').onclick = () => $('filters').classList.remove('show');
+$('fApply').onclick = applyFilters;
+
+/* ---------------- 隐患搜索 ---------------- */
+/**
+ * 「搜一批隐患 → 逐条评分 → 填一份统一处理意见」。
+ *
+ * 和「筛选进度总览」是同一套机制，只是换了个入口：总览按时间切一批，搜索按关键词切一批。
+ * 所以 scopeKey() 里带上了 `关键词:xxx` —— 搜「电气」和搜「消防」是两份独立的处理意见，
+ * 不区分的话后填的会把先填的覆盖掉。
+ */
+const HOT_WORDS = ['电气', '消防', '配电箱', '线路', '杂物', '通道', '用电', '电动车'];
+
+function buildHotWords() {
+  const box = $('sHot');
+  const kw = ($('sKey').value || '').trim();
+  box.innerHTML = HOT_WORDS
+    .map((w) => `<button data-w="${esc(w)}" class="${kw === w ? 'on' : ''}">${esc(w)}</button>`).join('');
+}
+
+function openSearch() {
+  $('filters').classList.remove('show');     // 两个面板都从底部升起，同时开会叠在一起
+  $('sKey').value = S.keyword || '';
+  buildHotWords();
+  updateSearchHint();
+  $('searchbox').classList.add('show');
+  setTimeout(() => { try { $('sKey').focus(); } catch (e) { /* 某些内嵌浏览器不给聚焦，无所谓 */ } }, 60);
+}
+
+/**
+ * 搜索面板里的实时提示：先算「如果现在搜，会出多少条」，让人心里有数再点。
+ *
+ * 走 passes()，并且按 doSearch() 将要落到的状态算（全部时间 + 当前评分状态），
+ * 所以这个数字和点下去之后的牌堆条数一定相等。
+ */
+function updateSearchHint() {
+  const kw = ($('sKey').value || '').trim().toLowerCase();
+  const el = $('sHint');
+  if (!kw) {
+    el.innerHTML = '搜索会自动切到「全部时间」，避免漏掉往期同类隐患';
+    return;
+  }
+  const opt = { kw, range: null, status: S.filterStatus, none: S.showNone };
+  let hz = 0, done = 0, noneOut = 0;
+  const recs = new Set();
+  for (const it of S.items) {
+    if (!matchKeyword(it, kw)) continue;
+    if (it.kind === 'none') { noneOut++; continue; }
+    if (!passes(it, opt)) continue;
+    hz++; recs.add(it.rid);
+    if (S.mine.has(keyOf(it.rid, it.no))) done++;
+  }
+  if (!hz) {
+    el.innerHTML = noneOut
+      ? `没搜到含「<b>${esc(kw)}</b>」的隐患；另有 <b>${noneOut}</b> 条「AI 未识别到隐患」的记录提到该词`
+      : `没有找到含「<b>${esc(kw)}</b>」的隐患，换个词试试（如「电气」「消防」）`;
+    return;
+  }
+  el.innerHTML = `搜索后牌堆共 <b>${hz}</b> 条` +
+    `（来自 ${recs.size} 条记录 · 你已评 <b>${done}</b> 条）` +
+    (S.filterStatus !== 'all' ? `<br>当前评分状态筛选为「${esc(STATUS_LABEL[S.filterStatus] || S.filterStatus)}」，搜索只在其中找` : '') +
+    (noneOut ? `<br>另有 <b>${noneOut}</b> 条「AI 未识别到隐患」的记录提到该词（不属隐患，可在筛选面板里按「疑似漏检」复核）` : '') +
+    `<br>搜索会自动切到全部时间，并显示在牌堆顶部`;
+}
+
+function doSearch() {
+  const kw = ($('sKey').value || '').trim();
+  if (!kw) { toast('请先输入关键词'); return; }
+  S.keyword = kw;
+  // 搜索是「按内容找一批」，不是「按时间找一批」：把时间放开到全部，
+  // 否则默认那一周会把往期同类隐患挡在外面，搜出来只有零星几条，人会以为搜错了。
+  S.filterFrom = ''; S.filterTo = '';
+  F.from = ''; F.to = ''; F.kw = kw; F.quick = '';
+  // 评分状态与漏检开关一律不动：
+  //   · 漏检开关交给 passes() 处理 —— 关键词生效时本来就不收漏检记录，这里改它就是多余的状态变更；
+  //   · 评分状态是用户自己选的，改了又不还回去，清除搜索后会莫名少掉一批记录。
+  //     搜索面板会提示「当前评分状态筛选为 X，搜索只在其中找」，让人知道为什么条数变少了。
+  $('searchbox').classList.remove('show');
+  $('filterLabel').textContent = filterSummary();
+  rebuildDeck();
+  const n = S.filtered.length;
+  toast(n ? `搜索「${kw}」：共 ${n} 条，逐条评分或去「筛选进度总览」填统一意见` : `没搜到含「${kw}」的隐患`);
+}
+
+/** 退出搜索，回到「全部隐患」（时间范围保持当前值不动） */
+function clearSearch() {
+  if (!S.keyword.trim()) { $('searchbox').classList.remove('show'); return; }
+  S.keyword = ''; F.kw = '';
+  $('sKey').value = '';
+  $('filterLabel').textContent = filterSummary();
+  rebuildDeck();
+  toast('已清除搜索');
+}
+
+$('btnSearch').onclick = openSearch;
+$('pSearch').onclick = openSearch;
+$('sClose').onclick = () => $('searchbox').classList.remove('show');
+$('sGo').onclick = doSearch;
+$('sKey').oninput = () => { buildHotWords(); updateSearchHint(); };
+$('sKey').onkeydown = (e) => { if (e.key === 'Enter') { e.preventDefault(); doSearch(); } };
+$('sHot').onclick = (e) => {
+  const b = e.target.closest('button'); if (!b) return;
+  $('sKey').value = b.dataset.w;
+  buildHotWords();
+  updateSearchHint();
+  $('sKey').focus();
+};
+
+/* ---------------- 其他交互 ---------------- */
+$('shClose').onclick = closeSheet;
+$('mask').onclick = () => {
+  closeSheet();
+  $('sheet2').classList.remove('show');
+  $('mask').classList.remove('show');
+  document.body.style.overflow = '';
+};
+$('viewerX').onclick = () => $('viewer').classList.remove('show');
+$('viewer').onclick = (e) => { if (e.target.id === 'viewer') $('viewer').classList.remove('show'); };
+$('btnFilter').onclick = openFilters;
+
+$('btnMe').onclick = async () => {
+  const name = prompt('修改姓名（换人评分时使用）', S.reviewer);
+  if (name === null) return;
+  const n = name.trim();
+  if (!n) return;
+  S.reviewer = n; localStorage.setItem('hr_reviewer', n);
+  $('btnMe').textContent = n;
+  await pullMine(); rebuildDeck(); toast('已切换为 ' + n);
+};
+
+$('btnAdmin').onclick = () => window.open('/admin', '_blank');
+$('btnLock').onclick = () => {
+  if (S.admin) { lockPhone(); return; }
+  $('lockbox').classList.contains('show') ? $('lockbox').classList.remove('show') : openLock();
+};
+$('lockGo').onclick = unlockPhone;
+$('lockClose').onclick = () => $('lockbox').classList.remove('show');
+$('lockPw').onkeydown = (e) => { if (e.key === 'Enter') { e.preventDefault(); unlockPhone(); } };
+$('btnOverview').onclick = () => showOverview();
+$('pSkip').onclick = jumpToSkipped;
+$('pRange').onclick = openFilters;
+
+/* 筛选处理意见：按当前筛选的部门 / 时间范围分别保存 */
+function openGeneral() {
+  $('sh2Title').textContent = '筛选处理意见';
+  $('gScopeLabel').textContent = scopeLabel();
+  const n = overviewStats();
+  $('gScopeDesc').textContent = `当前筛选：${n.total} 条隐患，已评 ${n.done} 条，待评 ${n.todo} 条。`;
+  $('generalBox').value = S.generals[scopeKey()] || '';
+  $('sheet2').classList.add('show');
+  $('mask').classList.add('show');
+  document.body.style.overflow = 'hidden';
+}
+function closeGeneral() {
+  $('sheet2').classList.remove('show');
+  $('mask').classList.remove('show');
+  document.body.style.overflow = '';
+}
+$('sh2Close').onclick = closeGeneral;
+$('gSave').onclick = () => {
+  const text = $('generalBox').value.trim();
+  const key = scopeKey();
+  save({ general: text, scope: key }).then((ok) => {
+    if (!ok) return;
+    if (text) S.generals[key] = text; else delete S.generals[key];
+    closeGeneral();
+    toast('已保存' + scopeLabel() + '的处理意见');
+    if (!$('panel').hidden) showOverview();
+  });
+};
+
+boot();
+</script>
+</body>
+</html>
