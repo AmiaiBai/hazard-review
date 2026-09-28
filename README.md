@@ -161,6 +161,7 @@ NODE_PATH="<jsdom 所在目录>" node tools/test_ui.js
 | `test_export_img.js` | 导出 xlsx 的表数量、图片数、锚点位置                                      |
 | `test_xlsx_img.js`   | 手工解 ZIP 校验 OOXML 部件齐全                                      |
 | `test_general_scope.js` | 按部门 / 时间范围分档的处理意见（含旧「批次:」格式兼容）                          |
+| `test_fresh_clone.js` | **「仓库不含 data/，克隆下来还能跑吗」** —— 空目录起服务、自动建 data/、生成并打印密码、无数据时各页面不 5xx |
 
 跑测试前先准备管理员密码：正常情况直接读 `data/admin.json`；
 没跑过服务端时设环境变量 `HR_ADMIN_PW`（取值逻辑见 `tools/_adminpw.js`）。

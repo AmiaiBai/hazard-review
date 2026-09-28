@@ -151,9 +151,26 @@ let exportCache = null;   // { buf, at } —— 导出含几百张图片，重�
 let deptExportCache = null;   // 按部门统计清单（纯文本，轻量），管理员专用
 
 let hazardsCache = null;
+
+/** 没有数据文件时的空骨架 —— 仓库不含 data/，全新克隆就靠它把服务拉起来 */
+function emptyHazards() {
+  return {
+    meta: { generatedAt: '', recordCount: 0, hazardCount: 0, emptyCount: 0, depts: [], batches: [] },
+    records: [],
+  };
+}
+
 function loadHazards() {
   if (hazardsCache) return hazardsCache;
-  hazardsCache = JSON.parse(fs.readFileSync(HAZARDS_FILE, 'utf8'));
+  try {
+    hazardsCache = JSON.parse(fs.readFileSync(HAZARDS_FILE, 'utf8'));
+  } catch (e) {
+    // 全新克隆（data/ 还没放数据）或文件损坏：给一副空骨架，服务照常起来，
+    // 界面上表现为「没有数据」—— 而不是启动即崩、连错误页都看不到。
+    hazardsCache = emptyHazards();
+  }
+  if (!hazardsCache.meta) hazardsCache.meta = emptyHazards().meta;
+  if (!Array.isArray(hazardsCache.records)) hazardsCache.records = [];
   return hazardsCache;
 }
 
@@ -1688,9 +1705,18 @@ const server = http.createServer(async (req, res) => {
 });
 
 server.listen(PORT, '0.0.0.0', () => {
+  fs.mkdirSync(DATA_DIR, { recursive: true });   // 全新克隆时 data/ 还不存在
+  loadAdmin();   // 首次运行在这里就把密码生成 + 打印出来 ——
+                 // 别等第一次登录：那时候用户不知道该输什么，只能先失败一次再去翻控制台
   const hz = loadHazards();
   console.log(`隐患评分器已启动 http://0.0.0.0:${PORT}`);
-  console.log(`数据：${hz.meta.recordCount} 条记录 / ${hz.meta.hazardCount} 条隐患`);
+  if (hz.meta.recordCount) {
+    console.log(`数据：${hz.meta.recordCount} 条记录 / ${hz.meta.hazardCount} 条隐患`);
+  } else {
+    console.log('数据：暂无识别记录（仓库不含数据）');
+    console.log(`      把识别记录放成 ${path.relative(ROOT, HAZARDS_FILE)}，现场照片放 data/images/ 再重启`);
+    console.log('      详见 SECURITY.md');
+  }
   console.log(`管理端：http://localhost:${PORT}/admin`);
   // 把局域网地址打出来 —— 同事连同一个 WiFi 就能访问，省得每次自己去 ipconfig 里翻
   const lan = Object.values(require('os').networkInterfaces()).flat()
