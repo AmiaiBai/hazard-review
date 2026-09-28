@@ -16,7 +16,7 @@ const fs = require('fs');
 const path = require('path');
 
 const ROOT = path.resolve(__dirname, '..');
-const PROJECT = path.resolve(ROOT, '..');            // D:\Project\AI眼镜
+const PROJECT = path.resolve(ROOT, '..');            // 仓库的上一级目录
 const LOCAL = path.join(ROOT, 'data', 'submissions.json');
 const BACKUP_DIR = path.join(PROJECT, 'outputs', 'hazard-review-backup');
 const DEFAULT_URL = 'https://da782378ef0146348f92b5c66301a892.sg.agentos-app.run';

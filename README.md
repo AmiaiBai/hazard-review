@@ -179,13 +179,17 @@ node tools/shots_search.js     # 手机端搜索链路 + 锁定/解锁 + 管理�
 | 脚本                                     | 用途                            |
 | -------------------------------------- | ----------------------------- |
 | `tools/import_batch.py`                | 增量导入 xlsx（去重合并 + 生成缩略图）       |
-| `tools/extract.py`                     | 从原始材料抽取记录                     |
+| `tools/extract.py`                     | 从原始材料抽取记录：`python tools/extract.py <识别记录.xlsx>` |
 | `tools/recompress_images.py`           | 现场图片重压缩                       |
 | `tools/snapshot_stats.js`              | 拉一份统计快照，给管理页测试当 fixture       |
 | `tools/sync_live.js` / `check_live.js` | 发布前后与线上实例同步 / 核对数据            |
 | `tools/diagnose_live.js`               | 线上打不开时的分层诊断（DNS / SNI / 服务本身） |
 | `tools/loadtest.js`                    | 并发压测                          |
 | `tools/perf_save.js`                   | 人为插网络延迟，核验「提交」路径的体感           |
+
+> **Python 脚本需要额外依赖**（服务端本身零依赖，这些只是导入 / 运维脚本）：
+> `pip install openpyxl Pillow`。
+> 目录一律从脚本自身位置推导，没有写死的绝对路径 —— 换台机器克隆下来直接能跑。
 
 ---
 

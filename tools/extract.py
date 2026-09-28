@@ -1,12 +1,19 @@
 # -*- coding: utf-8 -*-
-"""从「识别记录」xlsx 提取隐患数据 + 现场图片，输出前端可直接用的 JSON。"""
+"""从「识别记录」xlsx 提取隐患数据 + 现场图片，输出前端可直接用的 JSON。
+
+用法：python extract.py <识别记录.xlsx 路径>
+（源文件路径改成命令行参数 —— 以前写死在代码里，既换不了机器也把本地目录结构带进了仓库）
+"""
 import os, re, json, zipfile, io, sys, time
 import xml.etree.ElementTree as ET
 from PIL import Image
 import openpyxl
 
-SRC = r"D:\Project\AI眼镜\识别记录_178962387532239299.xlsx"
-OUT = r"D:\Project\AI眼镜\hazard-review\data"
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if len(sys.argv) < 2:
+    sys.exit("用法：python extract.py <识别记录.xlsx 路径>")
+SRC = sys.argv[1]
+OUT = os.path.join(ROOT, "data")
 IMG_DIR = os.path.join(OUT, "images")
 os.makedirs(IMG_DIR, exist_ok=True)
 

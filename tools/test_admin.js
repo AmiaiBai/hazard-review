@@ -3,7 +3,7 @@ const fs = require('fs');
 const path = require('path');
 const { JSDOM } = require('jsdom');
 
-const ROOT = 'D:\\Project\\AI眼镜\\hazard-review';
+const ROOT = path.join(__dirname, '..');   // 别写死绝对路径，换台机器就找不到
 const html = fs.readFileSync(path.join(ROOT, 'public', 'admin.html'), 'utf8');
 const statsPath = process.argv[2];
 const stats = JSON.parse(fs.readFileSync(statsPath, 'utf8'));

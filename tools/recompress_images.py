@@ -3,7 +3,9 @@
 import os, glob
 from PIL import Image
 
-IMG_DIR = r"D:\Project\AI眼镜\hazard-review\data\images"
+# 从脚本位置推目录，别写死绝对路径 —— 换台机器 / 换个人克隆下来就找不到
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+IMG_DIR = os.path.join(ROOT, "data", "images")
 MAX_W = 720
 Q = 72
 

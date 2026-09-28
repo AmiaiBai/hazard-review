@@ -16,7 +16,9 @@ const fs = require('fs');
 const path = require('path');
 
 const ROOT = path.join(__dirname, '..');
-const TMP = path.join(path.resolve(ROOT, '..'), 'outputs', '_fresh_clone');
+// 临时目录带上 pid：上一次的残留（可能还被没退干净的 server 进程占着）不会挡住这一次。
+// 用固定名字时踩过：前一次清理失败 → 这一次 rmSync 抛 EPERM → 整个测试没输出。
+const TMP = path.join(path.resolve(ROOT, '..'), 'outputs', '_fresh_clone_' + process.pid);
 const PORT = 3224;
 
 let pass = 0, fail = 0;
@@ -52,26 +54,34 @@ function req(method, p, payload) {
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 
 (async () => {
-  // ---- 搭一个「刚 clone 下来」的目录：只有服务真正需要的文件，没有 data/ ----
-  fs.rmSync(TMP, { recursive: true, force: true });
-  fs.mkdirSync(TMP, { recursive: true });
-  for (const f of ['server.js', 'package.json']) fs.copyFileSync(path.join(ROOT, f), path.join(TMP, f));
-  for (const d of ['lib', 'public']) copyDir(path.join(ROOT, d), path.join(TMP, d));
-
-  console.log('\n【1】克隆目录本身');
-  check('临时目录里没有 data/', !fs.existsSync(path.join(TMP, 'data')));
-  check('也没有 hazards.json', !fs.existsSync(path.join(TMP, 'data', 'hazards.json')));
-
-  const env = Object.assign({}, process.env, { PORT: String(PORT) });
-  delete env.HR_ADMIN_PW;                       // 走「随机生成密码」那条路
-  const child = spawn(process.execPath, [path.join(TMP, 'server.js')], {
-    env, cwd: TMP, stdio: ['ignore', 'pipe', 'pipe'],
-  });
+  // ⚠️ 连「准备目录」也要放进 try 里。
+  // 踩过：连在 8 个测试后面跑时，这个测试**一行输出都没有**（汇总行也不打印），
+  // 单独跑却 3/3 全过。原因是准备阶段在 try 外面 —— 只要 fs.rmSync / 复制文件抛一次异常
+  // （最可能是残留的临时目录被占着），就是未捕获异常，脚本直接死掉、什么都不打印。
+  // 确切触发条件没抓现场（事后查过：没有残留进程、端口空闲、没有残留目录），
+  // 但**「测试无论怎么挂都必须留下汇总行」**这条本身就是对的，所以两处都补上：
+  //   1) 准备阶段也进 try；  2) 临时目录带 pid，上一次的残留挡不住这一次。
+  let child = null;
   let out = '';
-  child.stdout.on('data', (d) => { out += d.toString(); });
-  child.stderr.on('data', (d) => { out += d.toString(); });
-
   try {
+    // ---- 搭一个「刚 clone 下来」的目录：只有服务真正需要的文件，没有 data/ ----
+    fs.rmSync(TMP, { recursive: true, force: true });
+    fs.mkdirSync(TMP, { recursive: true });
+    for (const f of ['server.js', 'package.json']) fs.copyFileSync(path.join(ROOT, f), path.join(TMP, f));
+    for (const d of ['lib', 'public']) copyDir(path.join(ROOT, d), path.join(TMP, d));
+
+    console.log('\n【1】克隆目录本身');
+    check('临时目录里没有 data/', !fs.existsSync(path.join(TMP, 'data')));
+    check('也没有 hazards.json', !fs.existsSync(path.join(TMP, 'data', 'hazards.json')));
+
+    const env = Object.assign({}, process.env, { PORT: String(PORT) });
+    delete env.HR_ADMIN_PW;                       // 走「随机生成密码」那条路
+    child = spawn(process.execPath, [path.join(TMP, 'server.js')], {
+      env, cwd: TMP, stdio: ['ignore', 'pipe', 'pipe'],
+    });
+    child.stdout.on('data', (d) => { out += d.toString(); });
+    child.stderr.on('data', (d) => { out += d.toString(); });
+
     let up = false;
     for (let i = 0; i < 40 && !up; i++) {
       try { await req('GET', '/api/health'); up = true; } catch (e) { await wait(200); }
@@ -111,14 +121,12 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
     check('/api/hazards 返回空列表而不是报错', Array.isArray(list.records) && list.records.length === 0, JSON.stringify(list).slice(0, 80));
     check('启动日志给了「数据放哪」的提示', /暂无识别记录|data/i.test(out));
   } catch (e) {
-    fail++; console.log('  ✗ 异常：' + e.message);
+    fail++; console.log('  ✗ 未捕获异常：' + (e && e.stack ? e.stack : e));
   } finally {
-    child.kill();
+    if (child) { try { child.kill(); } catch (e) { /* 已经退了 */ } }
     await wait(300);
-    // ⚠️ 清理绝不能抛异常：Windows 上前一个 server 进程可能还占着 data/ 里的文件，
-    // fs.rmSync 会 EPERM/EBUSY。如果让它在这里抛出去，整个脚本就跳过下面的汇总行 ——
-    // 表现为「这个测试没输出」，看起来像偶发失败，其实只是清理没做掉。
-    // （这个坑真踩过：连跑 9 个测试后再跑它，汇总行就没了。）
+    // ⚠️ 清理绝不能抛异常：Windows 上 server 进程可能还占着 data/ 里的文件，
+    // fs.rmSync 会 EPERM/EBUSY。让它在这里抛出去，脚本就跳过下面的汇总行。
     for (let i = 0; i < 5; i++) {
       try { fs.rmSync(TMP, { recursive: true, force: true }); break; }
       catch (e) { await wait(400); }
@@ -127,4 +135,9 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 
   console.log(`\n结果：${pass} 通过 / ${fail} 失败`);
   process.exit(fail ? 1 : 0);
-})();
+})().catch((e) => {
+  // 兜底：任何漏网的异常也要留下痕迹，不能静默消失
+  console.log('  ✗ 顶层异常：' + (e && e.stack ? e.stack : e));
+  console.log('\n结果：0 通过 / 1 失败');
+  process.exit(1);
+});
