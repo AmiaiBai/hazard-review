@@ -115,7 +115,14 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
   } finally {
     child.kill();
     await wait(300);
-    fs.rmSync(TMP, { recursive: true, force: true });
+    // ⚠️ 清理绝不能抛异常：Windows 上前一个 server 进程可能还占着 data/ 里的文件，
+    // fs.rmSync 会 EPERM/EBUSY。如果让它在这里抛出去，整个脚本就跳过下面的汇总行 ——
+    // 表现为「这个测试没输出」，看起来像偶发失败，其实只是清理没做掉。
+    // （这个坑真踩过：连跑 9 个测试后再跑它，汇总行就没了。）
+    for (let i = 0; i < 5; i++) {
+      try { fs.rmSync(TMP, { recursive: true, force: true }); break; }
+      catch (e) { await wait(400); }
+    }
   }
 
   console.log(`\n结果：${pass} 通过 / ${fail} 失败`);
